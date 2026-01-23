@@ -86,7 +86,8 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' })); // To parse JSON bodies 
 app.use(cookieParser()); // To parse cookies
 app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
-app.use(express.static("public")); // To serve static files from the "public" directory
+app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
+// app.use(express.static("public")); // Removed: Replaced with absolute path handling at bottom
 
 
 
@@ -144,8 +145,20 @@ app.use("/api/v1/blueprints", blueprintRoutes);
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
+// Define __dirname for ES modules
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files from the "public" directory (one level up from src if public is in backend root)
+// Assuming directory structure: backend/src/app.js  =>  backend/public
+app.use(express.static(path.join(__dirname, "../public")));
+
+
+// Serve React Frontend for any unknown routes (SPA)
+// MUST come after API routes but before Error Handling
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public", "index.html"));
+  res.sendFile(path.join(__dirname, "../public", "index.html"));
 });
 
 
