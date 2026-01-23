@@ -53,12 +53,15 @@ export const getDashboardStats = async (scope?: string | null) => {
  * @param {string} [scope] - Optional scope filter (e.g., 'lab', 'inter-lab')
  * @returns {Promise<any>} The response data containing filter options.
  */
-export const getReferenceFilters = async (scope?: string) => {
-    console.log("Fetching reference filters...", { scope });
+export const getReferenceFilters = async (scope?: string, params: { isArchived?: boolean, isHidden?: boolean } = {}) => {
+    console.log("Fetching reference filters...", { scope, ...params });
     const url = new URL(`${API_BASE_URL}/references/global/getFilters`);
     if (scope) {
         url.searchParams.append('scope', scope);
     }
+    if (params.isArchived !== undefined) url.searchParams.append('isArchived', String(params.isArchived));
+    if (params.isHidden !== undefined) url.searchParams.append('isHidden', String(params.isHidden));
+
     const response = await fetch(url.toString(), { credentials: 'include' });
     return handleResponse(response);
 };

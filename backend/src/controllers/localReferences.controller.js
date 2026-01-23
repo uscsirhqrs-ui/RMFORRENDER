@@ -803,6 +803,22 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
         };
     }
 
+    const { isArchived, isHidden } = req.query;
+
+    // Filter by Archived status (Default: Exclude archived)
+    if (isArchived !== undefined) {
+        matchCriteria.isArchived = isArchived === 'true';
+    } else {
+        matchCriteria.isArchived = { $ne: true };
+    }
+
+    // Filter by Hidden status (Default: Exclude hidden)
+    if (isHidden !== undefined) {
+        matchCriteria.isHidden = isHidden === 'true';
+    } else {
+        matchCriteria.isHidden = { $ne: true };
+    }
+
     // Aggregation Pipeline
     const pipeline = [
         { $match: matchCriteria },

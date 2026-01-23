@@ -338,6 +338,23 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
   // Let's set isAdmin = isGlobalAdmin ONLY. 
   // Local Admins fall into "else" but we change the match criteria there.
 
+  const { isArchived, isHidden } = req.query;
+
+  // Base Logic for Archival/Hidden Filter
+  const applyVisibilityFilters = (matchCriteria) => {
+    if (isArchived !== undefined) {
+      matchCriteria.isArchived = isArchived === 'true';
+    } else {
+      matchCriteria.isArchived = { $ne: true };
+    }
+
+    if (isHidden !== undefined) {
+      matchCriteria.isHidden = isHidden === 'true';
+    } else {
+      matchCriteria.isHidden = { $ne: true };
+    }
+  };
+
   let createdByUsers = [];
   let markedToUsers = [];
   let divisions = [];
@@ -417,6 +434,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     if (!scope || scope === 'inter-lab') {
       const match = {}; // Admin sees all
       if (scope === 'inter-lab') match.isInterLab = true;
+      applyVisibilityFilters(match); // Apply filters
       promises.push(aggregateFilters(GlobalReference, match));
     } else {
       promises.push(Promise.resolve([]));
@@ -425,6 +443,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     // Local Pipeline
     if (!scope || scope === 'lab') {
       const match = {};
+      applyVisibilityFilters(match); // Apply filters
       promises.push(aggregateFilters(LocalReference, match));
     } else {
       promises.push(Promise.resolve([]));
@@ -506,6 +525,9 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
 
       // Explicitly for inter-lab scope, ensure it matches global refs logic
       if (scope === 'inter-lab') match.isInterLab = true;
+
+      applyVisibilityFilters(match); // Apply filters to user scope
+
       promises.push(aggregateFilters(GlobalReference, match));
     } else {
       promises.push(Promise.resolve([]));
@@ -524,6 +546,9 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
         };
       }
       console.error(`[DEBUG_FILTERS] Local Pipeline Match: ${JSON.stringify(match)}`);
+
+      applyVisibilityFilters(match); // Apply filters to user local scope
+
       promises.push(aggregateFilters(LocalReference, match));
     } else {
       promises.push(Promise.resolve([]));
