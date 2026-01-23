@@ -152,6 +152,28 @@ const __dirname = path.dirname(__filename);
 // Assuming directory structure: backend/src/app.js  =>  backend/public
 app.use(express.static(path.join(__dirname, "../public")));
 
+// DEBUG ROUTE: Check file system capability
+app.get('/api/debug-diagnostics', (req, res) => {
+  const publicPath = path.join(__dirname, "../public");
+  const rootPath = path.join(__dirname, "../");
+
+  let publicListing = [];
+  try { publicListing = fs.readdirSync(publicPath); } catch (e) { publicListing = [`Error: ${e.message}`]; }
+
+  let rootListing = [];
+  try { rootListing = fs.readdirSync(rootPath); } catch (e) { rootListing = [`Error: ${e.message}`]; }
+
+  res.json({
+    __dirname,
+    process_cwd: process.cwd(),
+    computed_public_path: publicPath,
+    public_exists: fs.existsSync(publicPath),
+    public_contents: publicListing,
+    root_contents: rootListing,
+    env: process.env.NODE_ENV
+  });
+});
+
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
