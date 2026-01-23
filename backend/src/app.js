@@ -144,7 +144,7 @@ app.use("/api/v1/blueprints", blueprintRoutes);
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
-app.get("*", (req, res) => {
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "index.html"));
 });
 
