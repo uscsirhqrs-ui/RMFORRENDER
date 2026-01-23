@@ -88,9 +88,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                             console.log('[AuthContext] Refreshed user from backend:', userResponse.data);
                             setUser(userResponse.data);
                             localStorage.setItem('user', JSON.stringify(userResponse.data));
+                        } else {
+                            console.warn('[AuthContext] Session invalid or expired. Clearing local storage.');
+                            setUser(null);
+                            localStorage.removeItem('user');
                         }
                     } catch (apiError) {
-                        console.warn("[AuthContext] Failed to refresh user from backend", apiError);
+                        console.warn("[AuthContext] Failed to refresh user from backend (Network/API Error)", apiError);
+                        // Optional: Clear user on network error too? Maybe better to keep optimistic for offline sup.
+                        // But for security, better to fail closed if critical.
+                        // For now, let's assume if it throws, it's serious.
                     }
 
                 } catch (error) {
