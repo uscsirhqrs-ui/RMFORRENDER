@@ -11,6 +11,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
 import "./jobs/retention.job.js"; // Initialize cleanup jobs
 import "./jobs/archiving.job.js"; // Initialize automated archiving
 // Import routes here
@@ -139,6 +140,13 @@ import blueprintRoutes from "./routes/blueprint.routes.js";
 app.use("/api/v1/blueprints", blueprintRoutes);
 
 // http://localhost:8000/api/v1/users/register
+
+
+// Serve React Frontend for any unknown routes (SPA)
+// MUST come after API routes but before Error Handling
+app.get("*", (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "index.html"));
+});
 
 
 // Global error handling middleware
