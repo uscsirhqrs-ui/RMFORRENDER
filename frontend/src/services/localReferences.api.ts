@@ -87,13 +87,5 @@ export const requestLocalReopen = async (referenceId: string, remarks: string): 
 };
 
 export const getLocalReferenceFilters = async (params: { isArchived?: boolean, isHidden?: boolean } = {}): Promise<ApiResponse> => {
-    const url = new URL(`${API_BASE_URL}/references/local/getFilters`);
-    if (params.isArchived !== undefined) url.searchParams.append('isArchived', String(params.isArchived));
-    if (params.isHidden !== undefined) url.searchParams.append('isHidden', String(params.isHidden));
-
-    const response = await api.get(url.toString().replace(api.defaults.baseURL || '', '')); // Use relative path since axios instance has baseURL
-    // Actually, axios instance "api" has baseURL set. We should pass params in config object.
-
-    // Cleaner Axios way:
     return (await api.get('/getFilters', { params })).data;
 };
