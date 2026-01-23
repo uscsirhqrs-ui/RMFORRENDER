@@ -86,8 +86,6 @@ app.use(cors({
 app.use(express.json({ limit: '1mb' })); // To parse JSON bodies 
 app.use(cookieParser()); // To parse cookies
 app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
-// app.use(express.static("public")); // Removed: Replaced with absolute path handling at bottom
 
 
 
@@ -157,8 +155,18 @@ app.use(express.static(path.join(__dirname, "../public")));
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
+import fs from 'fs';
 app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "index.html"));
+  const indexPath = path.join(__dirname, "../public", "index.html");
+  console.log(`[SPA-ROUTE] Hit: ${req.originalUrl}`);
+  console.log(`[SPA-ROUTE] Serving: ${indexPath}`);
+
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    console.error(`[SPA-ROUTE] ERROR: index.html not found at ${indexPath}`);
+    res.status(404).send(`Not Found (SPA Error): index.html missing at ${indexPath}`);
+  }
 });
 
 
