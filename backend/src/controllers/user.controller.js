@@ -289,7 +289,7 @@ const logoutUser = asyncHandler(async (req, res, next) => {
  * @returns {Promise<void>} Sends a JSON response with new tokens
  */
 const refreshAccessToken = asyncHandler(async (req, res, next) => {
-  const { incomingRefreshToken } =
+  const incomingRefreshToken =
     req.cookies.refreshToken || req.body.refreshToken;
 
   if (!incomingRefreshToken) {
