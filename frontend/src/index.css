@@ -1,0 +1,355 @@
+@import "tailwindcss";
+
+/* Enable class-based dark mode for Tailwind v4 */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* 
+  CENTRALIZED TYPOGRAPHY CONFIGURATION
+  Update these variables to change fonts for the entire website.
+*/
+@theme {
+  /* Font Families - Using Geist Sans for a modern, minimalist Antigravity look */
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Geist", sans-serif;
+  --font-mono: "Geist Mono", monospace;
+
+  /* Global Weight Variables - Standardized for consistency */
+  --font-weight-thin: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Dynamic Accent Color Mapping - Redefining indigo shades to follow personalization */
+  --color-indigo-50: var(--primary-50, #eef2ff);
+  --color-indigo-100: var(--primary-100, #e0e7ff);
+  --color-indigo-500: var(--primary-500, #6366f1);
+  --color-indigo-600: var(--primary-600, #4f46e5);
+  --color-indigo-700: var(--primary-700, #4338ca);
+}
+
+@layer base {
+
+  /* Global Theme Transitions */
+  * {
+    @apply transition-colors duration-200;
+  }
+
+  /* Dynamic Accent Colors Configuration */
+  :root[data-accent-color="indigo"] {
+    --primary-50: #eef2ff;
+    --primary-100: #e0e7ff;
+    --primary-500: #6366f1;
+    --primary-600: #4f46e5;
+    --primary-700: #4338ca;
+  }
+
+  :root[data-accent-color="blue"] {
+    --primary-50: #eff6ff;
+    --primary-100: #dbeafe;
+    --primary-500: #3b82f6;
+    --primary-600: #2563eb;
+    --primary-700: #1d4ed8;
+  }
+
+  :root[data-accent-color="emerald"] {
+    --primary-50: #ecfdf5;
+    --primary-100: #d1fae5;
+    --primary-500: #10b981;
+    --primary-600: #059669;
+    --primary-700: #047857;
+  }
+
+  :root[data-accent-color="rose"] {
+    --primary-50: #fff1f2;
+    --primary-100: #ffe4e6;
+    --primary-500: #f43f5e;
+    --primary-600: #e11d48;
+    --primary-700: #be123c;
+  }
+
+  :root[data-accent-color="amber"] {
+    --primary-50: #fffbeb;
+    --primary-100: #fef3c7;
+    --primary-500: #f59e0b;
+    --primary-600: #d97706;
+    --primary-700: #b45309;
+  }
+
+  :root[data-font-size="small"] {
+    font-size: 14px;
+  }
+
+  :root[data-font-size="medium"] {
+    font-size: 16px;
+  }
+
+  :root[data-font-size="large"] {
+    font-size: 18px;
+  }
+
+  body {
+    @apply font-sans antialiased text-gray-700 bg-slate-50/50 leading-relaxed dark:bg-gray-900 dark:text-gray-300;
+    font-weight: var(--font-weight-regular);
+  }
+
+  /* Dark mode global overrides for standard Tailwind background classes */
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark h4,
+  .dark h5,
+  .dark h6 {
+    @apply text-gray-100;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading tracking-tight text-gray-900;
+    font-weight: var(--font-weight-bold);
+  }
+
+  /* Aesthetic Size Scale (Reduced from 'Big') */
+  h1 {
+    @apply text-3xl mb-6;
+  }
+
+  h2 {
+    @apply text-2xl mb-4;
+  }
+
+  h3 {
+    @apply text-xl mb-3;
+  }
+
+  h4 {
+    @apply text-lg mb-2;
+  }
+
+  p {
+    @apply mb-4;
+  }
+}
+
+@keyframes textGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.cards-gradient {
+  background: linear-gradient(-45deg, #f7f9fa, #ffffff);
+}
+
+.button-gradient {
+  background: linear-gradient(-45deg, #4047aa, #5850fa);
+}
+
+.animate-text-gradient {
+  background: linear-gradient(-45deg, #000000, #4f46e5, #9333ea, #0e4899, #4f46e5, #000000);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: textGradient 12s ease infinite;
+}
+
+@keyframes sparkle {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 0px rgba(79, 70, 229, 0));
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2) rotate(15deg);
+    filter: drop-shadow(0 0 8px rgba(79, 70, 229, 0.4));
+  }
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes workflowShine {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-modern-shine {
+  background: linear-gradient(to right, #4f46e5, #000000, #ec4899, #000000, #4f46e5);
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  animation: workflowShine 4s linear infinite;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-50px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 1s ease-out both;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes pulse-soft {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+@keyframes ring-bell {
+
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  10%,
+  30%,
+  50% {
+    transform: rotate(15deg);
+  }
+
+  20%,
+  40% {
+    transform: rotate(-15deg);
+  }
+}
+
+.animate-ring-bell {
+  animation: ring-bell 3s ease-in-out infinite;
+}
+
+@keyframes waggle {
+
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  25% {
+    transform: rotate(5deg);
+  }
+
+  75% {
+    transform: rotate(-5deg);
+  }
+}
+
+.animate-waggle {
+  animation: waggle 2s ease-in-out infinite;
+}
+
+/* Global Scrollbar Utility */
+@layer components {
+  .global-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: #64748b #e2e8f0;
+  }
+
+  .global-scrollbar::-webkit-scrollbar {
+    width: 14px;
+    display: block;
+  }
+
+  .global-scrollbar::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 6px;
+  }
+
+  .global-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #64748b;
+    border-radius: 6px;
+    border: 3px solid #e2e8f0;
+  }
+
+  .global-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #475569;
+  }
+}
+
+/* Custom Blink Animation */
+@keyframes blink {
+
+  0%,
+  49% {
+    opacity: 1;
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-blink {
+  animation: blink 1s infinite;
+}

@@ -1,0 +1,31 @@
+/* Dedicated Scrollbar Styles for Dropdown */
+
+/* The container class */
+.dropdown-scrollbar-forced {
+    scrollbar-width: auto;
+    /* Firefox */
+    scrollbar-color: #64748b #e2e8f0;
+    /* Firefox */
+}
+
+/* WebKit (Chrome, Edge, Safari) */
+.dropdown-scrollbar-forced::-webkit-scrollbar {
+    width: 14px !important;
+    display: block !important;
+}
+
+.dropdown-scrollbar-forced::-webkit-scrollbar-track {
+    background: #e2e8f0 !important;
+    border-radius: 6px !important;
+}
+
+.dropdown-scrollbar-forced::-webkit-scrollbar-thumb {
+    background-color: #64748b !important;
+    border-radius: 6px !important;
+    border: 3px solid #e2e8f0 !important;
+    /* Visual padding */
+}
+
+.dropdown-scrollbar-forced::-webkit-scrollbar-thumb:hover {
+    background-color: #475569 !important;
+}
