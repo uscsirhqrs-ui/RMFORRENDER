@@ -32,6 +32,8 @@ import Button from '../../components/ui/Button';
 import DropdownWithCheckboxes from '../../components/ui/DropDownWithCheckBoxes';
 import DropDownWithSearch from '../../components/ui/DropDownWithSearch';
 import ColumnVisibilityDropdown from '../../components/ui/ColumnVisibilityDropdown';
+import { MobileCardList } from '../../components/ui/MobileCardList';
+import { ReferenceMobileCard } from '../../components/ui/ReferenceMobileCard';
 import { useAuth } from '../../context/AuthContext';
 import { FeatureCodes } from '../../constants';
 import { useMessageBox } from '../../context/MessageBoxContext';
@@ -377,71 +379,91 @@ const ManageLocalReferencesPage = () => {
 
             {/* Table */}
             <div className={`transition-all duration-300 ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                <Table<Reference>
-                    rows={references}
-                    visibleColumns={visibleColumns}
-                    columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
-                    customHeaderRenderers={{
-                        selection: () => (
-                            <input
-                                type="checkbox"
-                                checked={references.length > 0 && selectedIds.length === references.length}
-                                onChange={toggleSelectAll}
-                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                        )
-                    }}
-                    customRenderers={{
-                        selection: (row) => (
-                            <div className="flex justify-center">
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                    <Table<Reference>
+                        rows={references}
+                        visibleColumns={visibleColumns}
+                        columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
+                        customHeaderRenderers={{
+                            selection: () => (
                                 <input
                                     type="checkbox"
-                                    checked={selectedIds.includes(row._id)}
-                                    onChange={() => toggleSelect(row._id)}
+                                    checked={references.length > 0 && selectedIds.length === references.length}
+                                    onChange={toggleSelectAll}
                                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                            </div>
-                        ),
-                        refId: (row) => (
-                            <Link to={`/references/local/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline font-heading">
-                                {row.refId}
-                            </Link>
-                        ),
-                        subject: (row) => (
-                            <div className="flex flex-col">
-                                <span className="font-semibold text-gray-900 truncate font-heading" title={row.subject}>{row.subject}</span>
-                                <div className="flex gap-2 mt-0.5">
-                                    {row.isHidden && (
-                                        <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase font-heading">
-                                            <EyeOff className="w-2.5 h-2.5" /> Hidden
-                                        </span>
-                                    )}
-                                    {row.isArchived && (
-                                        <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-bold uppercase font-heading">
-                                            <Archive className="w-2.5 h-2.5" /> Archived
-                                        </span>
-                                    )}
+                            )
+                        }}
+                        customRenderers={{
+                            selection: (row) => (
+                                <div className="flex justify-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.includes(row._id)}
+                                        onChange={() => toggleSelect(row._id)}
+                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
                                 </div>
-                            </div>
-                        ),
-                        status: (row) => (
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider font-heading ${getStatusStyles(row.status)}`}>
-                                {row.status}
-                            </span>
-                        ),
-                        isHidden: (row) => (
-                            row.isHidden ?
-                                <span className="text-orange-600 flex items-center gap-1 font-bold text-[10px] uppercase font-heading"><EyeOff className="w-3 h-3" /> Yes</span> :
-                                <span className="text-gray-400 text-[10px] uppercase font-heading">No</span>
-                        ),
-                        isArchived: (row) => (
-                            row.isArchived ?
-                                <span className="text-gray-600 flex items-center gap-1 font-bold text-[10px] uppercase font-heading"><Archive className="w-3 h-3" /> Yes</span> :
-                                <span className="text-gray-400 text-[10px] uppercase font-heading">No</span>
-                        ),
-                        labName: (row) => <span className="text-xs font-bold text-gray-500 uppercase font-heading">{row.labName || 'N/A'}</span>,
-                        createdAt: (row) => <span className="font-heading">{new Date(row.createdAt).toLocaleDateString()}</span>
-                    }}
+                            ),
+                            refId: (row) => (
+                                <Link to={`/references/local/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline font-heading">
+                                    {row.refId}
+                                </Link>
+                            ),
+                            subject: (row) => (
+                                <div className="flex flex-col">
+                                    <span className="font-semibold text-gray-900 truncate font-heading" title={row.subject}>{row.subject}</span>
+                                    <div className="flex gap-2 mt-0.5">
+                                        {row.isHidden && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase font-heading">
+                                                <EyeOff className="w-2.5 h-2.5" /> Hidden
+                                            </span>
+                                        )}
+                                        {row.isArchived && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-bold uppercase font-heading">
+                                                <Archive className="w-2.5 h-2.5" /> Archived
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ),
+                            status: (row) => (
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider font-heading ${getStatusStyles(row.status)}`}>
+                                    {row.status}
+                                </span>
+                            ),
+                            isHidden: (row) => (
+                                row.isHidden ?
+                                    <span className="text-orange-600 flex items-center gap-1 font-bold text-[10px] uppercase font-heading"><EyeOff className="w-3 h-3" /> Yes</span> :
+                                    <span className="text-gray-400 text-[10px] uppercase font-heading">No</span>
+                            ),
+                            isArchived: (row) => (
+                                row.isArchived ?
+                                    <span className="text-gray-600 flex items-center gap-1 font-bold text-[10px] uppercase font-heading"><Archive className="w-3 h-3" /> Yes</span> :
+                                    <span className="text-gray-400 text-[10px] uppercase font-heading">No</span>
+                            ),
+                            labName: (row) => <span className="text-xs font-bold text-gray-500 uppercase font-heading">{row.labName || 'N/A'}</span>,
+                            createdAt: (row) => <span className="font-heading">{new Date(row.createdAt).toLocaleDateString()}</span>
+                        }}
+                    />
+                </div>
+
+                {/* Mobile View: Cards */}
+                <MobileCardList
+                    data={references}
+                    keyExtractor={(row) => row._id}
+                    emptyMessage="No references found."
+                    renderItem={(row) => (
+                        <ReferenceMobileCard
+                            data={row}
+                            isSelected={selectedIds.includes(row._id)}
+                            onToggleSelect={() => toggleSelect(row._id)}
+                            linkBaseUrl="/references/local"
+                            statusRenderer={getStatusStyles}
+                            showLabName={isGlobalAdmin}
+                        />
+                    )}
                 />
             </div>
 

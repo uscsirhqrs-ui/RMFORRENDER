@@ -31,7 +31,10 @@ import Table from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
 import DropdownWithCheckboxes from '../../components/ui/DropDownWithCheckBoxes';
 import DropDownWithSearch from '../../components/ui/DropDownWithSearch';
+
 import ColumnVisibilityDropdown from '../../components/ui/ColumnVisibilityDropdown';
+import { MobileCardList } from '../../components/ui/MobileCardList';
+import { ReferenceMobileCard } from '../../components/ui/ReferenceMobileCard';
 import { useAuth } from '../../context/AuthContext';
 import { FeatureCodes } from '../../constants';
 import { useMessageBox } from '../../context/MessageBoxContext';
@@ -368,70 +371,89 @@ const ManageGlobalReferencesPage = () => {
 
             {/* Table */}
             <div className={`transition-all duration-300 ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                <Table<Reference>
-                    rows={references}
-                    visibleColumns={visibleColumns}
-                    columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
-                    customHeaderRenderers={{
-                        selection: () => (
-                            <input
-                                type="checkbox"
-                                checked={references.length > 0 && selectedIds.length === references.length}
-                                onChange={toggleSelectAll}
-                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                        )
-                    }}
-                    customRenderers={{
-                        selection: (row) => (
-                            <div className="flex justify-center">
+                {/* Desktop View */}
+                <div className="hidden md:block">
+                    <Table<Reference>
+                        rows={references}
+                        visibleColumns={visibleColumns}
+                        columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
+                        customHeaderRenderers={{
+                            selection: () => (
                                 <input
                                     type="checkbox"
-                                    checked={selectedIds.includes(row._id)}
-                                    onChange={() => toggleSelect(row._id)}
+                                    checked={references.length > 0 && selectedIds.length === references.length}
+                                    onChange={toggleSelectAll}
                                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
-                            </div>
-                        ),
-                        refId: (row) => (
-                            <Link to={`/references/global/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
-                                {row.refId}
-                            </Link>
-                        ),
-                        subject: (row) => (
-                            <div className="flex flex-col">
-                                <Link to={`/references/global/${row._id}`} className="font-semibold text-gray-900 truncate hover:text-indigo-600 hover:underline" title={row.subject}>
-                                    {row.subject}
+                            )
+                        }}
+                        customRenderers={{
+                            selection: (row) => (
+                                <div className="flex justify-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds.includes(row._id)}
+                                        onChange={() => toggleSelect(row._id)}
+                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                </div>
+                            ),
+                            refId: (row) => (
+                                <Link to={`/references/global/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
+                                    {row.refId}
                                 </Link>
-                                {row.isHidden && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase mt-0.5">
-                                        <EyeOff className="w-2.5 h-2.5" /> Hidden
-                                    </span>
-                                )}
-                                {row.isArchived && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-bold uppercase mt-0.5">
-                                        <Archive className="w-2.5 h-2.5" /> Archived
-                                    </span>
-                                )}
-                            </div>
-                        ),
-                        status: (row) => (
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getStatusStyles(row.status)}`}>
-                                {row.status}
-                            </span>
-                        ),
-                        isHidden: (row) => (
-                            row.isHidden ?
-                                <span className="text-orange-600 flex items-center gap-1 font-bold text-[10px] uppercase"><EyeOff className="w-3 h-3" /> Yes</span> :
-                                <span className="text-gray-400 text-[10px] uppercase">No</span>
-                        ),
-                        isArchived: (row) => (
-                            row.isArchived ?
-                                <span className="text-gray-600 flex items-center gap-1 font-bold text-[10px] uppercase"><Archive className="w-3 h-3" /> Yes</span> :
-                                <span className="text-gray-400 text-[10px] uppercase">No</span>
-                        ),
-                        createdAt: (row) => new Date(row.createdAt).toLocaleDateString()
-                    }}
+                            ),
+                            subject: (row) => (
+                                <div className="flex flex-col">
+                                    <Link to={`/references/global/${row._id}`} className="font-semibold text-gray-900 truncate hover:text-indigo-600 hover:underline" title={row.subject}>
+                                        {row.subject}
+                                    </Link>
+                                    {row.isHidden && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase mt-0.5">
+                                            <EyeOff className="w-2.5 h-2.5" /> Hidden
+                                        </span>
+                                    )}
+                                    {row.isArchived && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-gray-500 font-bold uppercase mt-0.5">
+                                            <Archive className="w-2.5 h-2.5" /> Archived
+                                        </span>
+                                    )}
+                                </div>
+                            ),
+                            status: (row) => (
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getStatusStyles(row.status)}`}>
+                                    {row.status}
+                                </span>
+                            ),
+                            isHidden: (row) => (
+                                row.isHidden ?
+                                    <span className="text-orange-600 flex items-center gap-1 font-bold text-[10px] uppercase"><EyeOff className="w-3 h-3" /> Yes</span> :
+                                    <span className="text-gray-400 text-[10px] uppercase">No</span>
+                            ),
+                            isArchived: (row) => (
+                                row.isArchived ?
+                                    <span className="text-gray-600 flex items-center gap-1 font-bold text-[10px] uppercase"><Archive className="w-3 h-3" /> Yes</span> :
+                                    <span className="text-gray-400 text-[10px] uppercase">No</span>
+                            ),
+                            createdAt: (row) => new Date(row.createdAt).toLocaleDateString()
+                        }}
+                    />
+                </div>
+
+                {/* Mobile View: Cards */}
+                <MobileCardList
+                    data={references}
+                    keyExtractor={(row) => row._id}
+                    emptyMessage="No references found."
+                    renderItem={(row) => (
+                        <ReferenceMobileCard
+                            data={row}
+                            isSelected={selectedIds.includes(row._id)}
+                            onToggleSelect={() => toggleSelect(row._id)}
+                            linkBaseUrl="/references/global"
+                            statusRenderer={getStatusStyles}
+                        />
+                    )}
                 />
             </div>
 
