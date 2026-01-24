@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileText, Table as TableIcon, Loader2, ChevronDown } from 'lucide-react';
+import { Download, FileText, Table as TableIcon, Loader2 } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../../utils/exportUtils';
 import Button from './Button';
 
