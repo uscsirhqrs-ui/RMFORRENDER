@@ -994,51 +994,75 @@ export const updateReference = asyncHandler(async (req, res, next) => {
   });
   await movement.save();
 
-  // --- Send Email Notification ---
-  try {
-    // 1. Notify Marked To Users (if not self)
-    const markedToIds = Array.isArray(reference.markedTo) ? reference.markedTo : [reference.markedTo];
-    for (const markedToId of markedToIds) {
-      const currentMarkedToUser = await User.findById(markedToId);
-      if (currentMarkedToUser && currentMarkedToUser.email && currentMarkedToUser._id.toString() !== req.user._id.toString()) {
-        const actorName = getUserDisplayName(req.user);
-        const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
-        await sendEmail({
-          to: currentMarkedToUser.email,
-          subject: `Reference Updated: ${reference.subject} [${reference.refId}]`,
-          html: emailContent
-        });
-      }
-    }
+  // --- Send Email & Notification (Non-blocking) ---
+  (async () => {
+    try {
+      // 1. Notify Marked To Users (if not self)
+      const markedToIds = Array.isArray(reference.markedTo) ? reference.markedTo : [reference.markedTo];
 
-    // 2. Notify Creator (if not self and not in markedTo list)
-    const creatorUser = await User.findById(reference.createdBy);
-    const isMarkedToCreator = markedToIds.some(id => id.toString() === reference.createdBy.toString());
-    if (creatorUser && creatorUser.email && creatorUser._id.toString() !== req.user._id.toString() && !isMarkedToCreator) {
-      const actorName = getUserDisplayName(req.user);
-      const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
-      await sendEmail({
-        to: creatorUser.email,
-        subject: `Reference Update (My Ref): ${reference.subject} [${reference.refId}]`,
-        html: emailContent
+      // Optimize: Fetch all users in one query
+      const markedToUsers = await User.find({
+        _id: { $in: markedToIds },
+        email: { $exists: true, $ne: "" }
       });
-    }
 
-    // --- NOTIFICATION TRIGGER ---
-    if (reference.markedTo.toString() !== req.user._id.toString()) {
-      const refType = 'Reference';
-      await createNotification(
-        reference.markedTo,
-        'REFERENCE_ASSIGNED',
-        `${refType} Assigned/Updated`,
-        `A ${refType.toLowerCase()} has been assigned or updated to you: ${reference.subject}`,
-        reference._id
-      );
-    }
+      const emailPromises = [];
+      const notificationPromises = [];
+      const actorName = getUserDisplayName(req.user);
 
-  } catch (emailError) {
-    console.error("Failed to send update notifications:", emailError);
-  }
+      for (const user of markedToUsers) {
+        if (user._id.toString() !== req.user._id.toString()) {
+          // Email
+          const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
+          emailPromises.push(
+            sendEmail({
+              to: user.email,
+              subject: `Reference Updated: ${reference.subject} [${reference.refId}]`,
+              html: emailContent
+            }).catch(err => console.error(`Failed to send email to ${user.email}:`, err))
+          );
+        }
+      }
+
+      // 2. Notify Creator (if not self and not in markedTo list)
+      const creatorUser = await User.findById(reference.createdBy);
+      const isMarkedToCreator = markedToIds.some(id => id.toString() === reference.createdBy.toString());
+
+      if (creatorUser && creatorUser.email && creatorUser._id.toString() !== req.user._id.toString() && !isMarkedToCreator) {
+        const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
+        emailPromises.push(
+          sendEmail({
+            to: creatorUser.email,
+            subject: `Reference Update (My Ref): ${reference.subject} [${reference.refId}]`,
+            html: emailContent
+          }).catch(err => console.error(`Failed to send email to creator ${creatorUser.email}:`, err))
+        );
+      }
+
+      // --- NOTIFICATION TRIGGER ---
+      // We can iterate markedToIds again or use the fetched users
+      for (const id of markedToIds) {
+        if (id.toString() !== req.user._id.toString()) {
+          const refType = 'Reference';
+          notificationPromises.push(
+            createNotification(
+              id,
+              'REFERENCE_ASSIGNED',
+              `${refType} Assigned/Updated`,
+              `A ${refType.toLowerCase()} has been assigned or updated to you: ${reference.subject}`,
+              reference._id
+            ).catch(err => console.error(`Failed to create notification for ${id}:`, err))
+          );
+        }
+      }
+
+      // Execute all in parallel (background)
+      await Promise.all([...emailPromises, ...notificationPromises]);
+
+    } catch (bgError) {
+      console.error("Background task error in updateReference:", bgError);
+    }
+  })();
 
   res.status(200).json(new ApiResponse(200, 'Reference updated successfully', reference));
 });
