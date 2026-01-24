@@ -26,23 +26,20 @@ const transporter = nodemailer.createTransport({
  * @param {string} html - Email body (HTML)
  */
 export const sendEmail = async ({ to, subject, html }) => {
-  try {
-    const mailOptions = {
-      from: `Reference Management Portal <${process.env.RESET_SEND_EMAIL}>`,
-      to,
-      subject,
-      html,
-    };
+  const mailOptions = {
+    from: `Reference Management Portal <${process.env.RESET_SEND_EMAIL}>`,
+    to,
+    subject,
+    html,
+  };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
-    return info;
-  } catch (error) {
-    console.error("Error sending email:", error);
-    // Don't throw error to prevent blocking the main flow, just log it.
-    // Or return null indicating failure.
-    return null;
-  }
+  // NON-BLOCKING: Send email in the background without awaiting
+  transporter.sendMail(mailOptions)
+    .then(info => console.log(`Email sent (Async): ${info.messageId}`))
+    .catch(error => console.error("Error sending email (Async):", error));
+
+  // Return immediately so the API doesn't wait
+  return { messageId: 'queued-async' };
 };
 
 /**
