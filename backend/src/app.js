@@ -12,7 +12,12 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
+import fs from "fs";
 import "./jobs/retention.job.js"; // Initialize cleanup jobs
+
+console.log("----------------------------------------");
+console.log("   SERVER STARTING - DIAGNOSTICS PATCH LOADED");
+console.log("----------------------------------------");
 import "./jobs/archiving.job.js"; // Initialize automated archiving
 // Import routes here
 import userRoutes from "./routes/user.routes.js";
@@ -177,7 +182,6 @@ app.get('/api/debug-diagnostics', (req, res) => {
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
-import fs from 'fs';
 app.get(/.*/, (req, res) => {
   const indexPath = path.join(__dirname, "../public", "index.html");
   console.log(`[SPA-ROUTE] Hit: ${req.originalUrl}`);
