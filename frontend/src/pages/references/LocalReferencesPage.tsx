@@ -168,22 +168,25 @@ function LocalReferencesPage() {
         fetchReferences();
     }, [currentPage, rowsPerPage, selectedStatuses, selectedPriorities, selectedMarkedTo, selectedCreatedBy, selectedDivisions, subjectFilter, pendingDaysFilter, sortConfig]);
 
-    useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                setStatsLoading(true);
-                const res = await getLocalDashboardStats();
-                if (res.success && res.data) {
-                    setStats(res.data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch local stats:", error);
-            } finally {
-                setStatsLoading(false);
+    const fetchStats = async () => {
+        try {
+            setStatsLoading(true);
+            const res = await getLocalDashboardStats();
+            if (res.success && res.data) {
+                setStats(res.data);
             }
-        };
+        } catch (error) {
+            console.error("Failed to fetch local stats:", error);
+        } finally {
+            setStatsLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchStats();
     }, []);
+
+
 
     useEffect(() => {
         const fetchFilters = async () => {
@@ -782,7 +785,10 @@ function LocalReferencesPage() {
             <AddLocalReferenceModal
                 isOpen={isAddModalOpen}
                 onClose={() => setIsAddModalOpen(false)}
-                onSuccess={fetchReferences}
+                onSuccess={() => {
+                    fetchReferences();
+                    fetchStats();
+                }}
             />
 
             <BulkUpdateLocalReferenceModal
