@@ -45,4 +45,10 @@ const LocalMovementSchema = new Schema(
     }
 )
 
+// Index for getting movements history of a reference quickly
+LocalMovementSchema.index({ reference: 1, movementDate: 1 });
+// Index for checking permission (exists query)
+LocalMovementSchema.index({ reference: 1, markedTo: 1 });
+LocalMovementSchema.index({ reference: 1, performedBy: 1 });
+
 export const LocalMovement = mongoose.model('localRefMovement', LocalMovementSchema)

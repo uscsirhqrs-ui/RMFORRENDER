@@ -45,4 +45,10 @@ const GlobalMovementSchema = new Schema(
     }
 )
 
+// Index for getting movements history of a reference quickly
+GlobalMovementSchema.index({ reference: 1, movementDate: 1 });
+// Index for checking permission (exists query)
+GlobalMovementSchema.index({ reference: 1, markedTo: 1 });
+GlobalMovementSchema.index({ reference: 1, performedBy: 1 });
+
 export const GlobalMovement = mongoose.model('globalRefMovement', GlobalMovementSchema)
