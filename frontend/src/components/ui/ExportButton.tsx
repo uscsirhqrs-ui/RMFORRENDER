@@ -19,6 +19,7 @@ interface ExportButtonProps {
     variant?: 'primary' | 'secondary' | 'danger';
     exportedBy?: string;
     filterSummary?: string;
+    logoUrl?: string;
 }
 
 const ExportButton: React.FC<ExportButtonProps> = ({
@@ -30,7 +31,8 @@ const ExportButton: React.FC<ExportButtonProps> = ({
     className,
     variant = 'secondary',
     exportedBy,
-    filterSummary
+    filterSummary,
+    logoUrl
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +73,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
             if (format === 'csv') {
                 exportToCSV(processedData, finalFilename);
             } else {
-                exportToPDF(processedData, columns, title, finalFilename, exportedBy, filterSummary, pdfOrientation);
+                await exportToPDF(processedData, columns, title, finalFilename, exportedBy, filterSummary, pdfOrientation, logoUrl);
             }
 
         } catch (error) {

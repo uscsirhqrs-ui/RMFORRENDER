@@ -42,14 +42,15 @@ export const exportToCSV = (data: any[], filename: string) => {
  * @param title PDF Title
  * @param filename File name (without extension)
  */
-export const exportToPDF = (
+export const exportToPDF = async (
     data: any[],
     columns: { header: string; dataKey: string }[],
     title: string,
     filename: string,
     exportedBy?: string,
     filterSummary?: string,
-    orientation: 'portrait' | 'landscape' = 'landscape'
+    orientation: 'portrait' | 'landscape' = 'landscape',
+    logoUrl?: string // New parameter for branding
 ) => {
     if (!data || data.length === 0) {
         console.warn("No data to export");
@@ -57,10 +58,28 @@ export const exportToPDF = (
     }
 
     const doc = new jsPDF({ orientation });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Pre-load logo to avoid async issues during generation
+    let base64Logo = "";
+    if (logoUrl) {
+        try {
+            base64Logo = await getBase64Image(logoUrl);
+        } catch (e) {
+            console.error("Failed to load logo for PDF:", e);
+        }
+    }
+
+    // Logo (Top Right)
+    if (base64Logo) {
+        const logoWidth = 35; // Standard width for list reports
+        const logoHeight = 35;
+        doc.addImage(base64Logo, 'PNG', pageWidth - logoWidth - 14, 8, logoWidth, logoHeight, undefined, 'FAST');
+    }
 
     // Title
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
+    doc.setFontSize(18);
     doc.text(title, 14, 20);
 
     // Metadata
@@ -104,17 +123,20 @@ export const exportToPDF = (
 
     const summaryText = filterSummary || "-NIL-";
 
-    const maxTextWidth = 180 - filterLabelWidth;
+    const maxTextWidth = pageWidth - filterLabelWidth - 28;
     const splitText = doc.splitTextToSize(summaryText, maxTextWidth);
     doc.text(splitText, 14 + filterLabelWidth, currentY);
-    currentY += (splitText.length * 5) + 2;
+    currentY += (splitText.length * 5) + 6;
+
+    // Safety: ensure table doesn't overlap logo area too much if Y is small
+    if (currentY < 45 && base64Logo) {
+        currentY = 48;
+    }
 
     // Prepare table body based on columns
     const tableBody = data.map(row => {
         const rowData: any = {};
         columns.forEach(col => {
-            // In the simplified version, the row already contains the formatted values
-            // with keys matching the column headers
             rowData[col.header] = row[col.header] || '';
         });
         return rowData;
@@ -125,10 +147,241 @@ export const exportToPDF = (
     autoTable(doc, {
         head: [tableColumns.map(c => c.header)],
         body: tableBody.map(row => tableColumns.map(c => row[c.dataKey])),
-        startY: currentY, // Dynamic spacing
+        startY: currentY,
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [79, 70, 229] }, // Indigo-600 logic
+        headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+        margin: { left: 14, right: 14 },
     });
+
+    doc.save(`${filename}.pdf`);
+};
+
+/**
+ * Helper to convert an image URL or SVG to a Data URL (Base64)
+ */
+const getBase64Image = (url: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            // Use high resolution for logo quality
+            const scale = 2;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                ctx.scale(scale, scale);
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            } else {
+                reject(new Error('Canvas context not available'));
+            }
+        };
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+    });
+};
+
+/**
+ * Generates a detailed PDF report for a single reference and its movements
+ */
+export const exportReferenceReportPDF = async (
+    reference: any,
+    movements: any[],
+    title: string,
+    filename: string,
+    exportedBy?: string,
+    logoUrl?: string, // New parameter for branding
+    orientation: 'portrait' | 'landscape' = 'landscape' // Default to landscape
+) => {
+    const doc = new jsPDF({ orientation });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Helper for user display name
+    const getUserDisplay = (user: any) => {
+        if (!user) return "N/A";
+        if (typeof user === 'string') return user;
+        const name = user.fullName || "Unknown";
+        const designation = user.designation ? `, ${user.designation}` : "";
+        const lab = user.labName ? ` (${user.labName})` : "";
+        return `${name}${designation}${lab}`;
+    };
+
+    // Pre-load logo to avoid async issues during page decoration
+    let base64Logo = "";
+    if (logoUrl) {
+        try {
+            base64Logo = await getBase64Image(logoUrl);
+        } catch (e) {
+            console.error("Failed to load logo for PDF:", e);
+        }
+    }
+
+    const drawHeader = (pageDoc: jsPDF) => {
+        pageDoc.setFillColor(255, 255, 255);
+        pageDoc.rect(0, 0, pageWidth, 60, 'F');
+
+        pageDoc.setDrawColor(79, 70, 229); // CSIR Indigo
+        pageDoc.setLineWidth(1.5);
+        pageDoc.line(0, 0, pageWidth, 0);
+
+        if (base64Logo) {
+            pageDoc.addImage(base64Logo, 'PNG', 14, 8, 40, 40, undefined, 'FAST');
+        }
+
+        const rightMargin = pageWidth - 14;
+        const isLocal = title.toLowerCase().includes('local');
+        const labName = reference.labName || (reference.createdByDetails?.labName) || "";
+
+        pageDoc.setTextColor(79, 70, 229);
+        pageDoc.setFont("helvetica", "bold");
+        pageDoc.setFontSize(orientation === 'landscape' ? 10 : 9);
+        pageDoc.text("COUNCIL OF SCIENTIFIC & INDUSTRIAL RESEARCH", rightMargin, 15, { align: 'right' });
+
+        if (isLocal && labName) {
+            pageDoc.setFontSize(orientation === 'landscape' ? 18 : 16);
+            pageDoc.text(labName.toUpperCase(), rightMargin, 28, { align: 'right' });
+            pageDoc.setTextColor(31, 41, 55);
+            pageDoc.setFontSize(orientation === 'landscape' ? 24 : 20);
+            pageDoc.text("REFERENCE REPORT", rightMargin, 42, { align: 'right' });
+            pageDoc.setFontSize(orientation === 'landscape' ? 9 : 8);
+            pageDoc.setFont("helvetica", "normal");
+            pageDoc.setTextColor(107, 114, 128);
+            pageDoc.text("LOCAL REFERENCE MANAGEMENT SYSTEM", rightMargin, 50, { align: 'right' });
+        } else {
+            pageDoc.setTextColor(31, 41, 55);
+            pageDoc.setFontSize(orientation === 'landscape' ? 26 : 22);
+            pageDoc.text("REFERENCE REPORT", rightMargin, 35, { align: 'right' });
+            pageDoc.setFontSize(orientation === 'landscape' ? 11 : 10);
+            pageDoc.setFont("helvetica", "normal");
+            pageDoc.setTextColor(107, 114, 128);
+            pageDoc.text("GLOBAL REFERENCE TRACKING SYSTEM", rightMargin, 45, { align: 'right' });
+        }
+
+        pageDoc.setDrawColor(229, 231, 235);
+        pageDoc.setLineWidth(0.5);
+        pageDoc.line(14, 58, pageWidth - 14, 58);
+    };
+
+    const drawFooter = (pageDoc: jsPDF, pageNumber: number, totalPages: number) => {
+        const footerY = pageHeight - 15;
+
+        pageDoc.setDrawColor(79, 70, 229);
+        pageDoc.setLineWidth(0.5);
+        pageDoc.line(14, footerY - 5, pageWidth - 14, footerY - 5);
+
+        pageDoc.setFontSize(8);
+        pageDoc.setTextColor(156, 163, 175);
+
+        const leftText = `Generated by: ${exportedBy || 'System'} on ${new Date().toLocaleString()}`;
+        const rightText = `© ${new Date().getFullYear()} CSIR`;
+        const pageInfo = `Page ${pageNumber} of ${totalPages}`;
+
+        // Width management to prevent collision
+        const centerWidth = 30; // Approx width for "Page X of Y"
+        const sideWidth = (pageWidth - centerWidth - 36) / 2; // 14 margin * 2 + safety
+
+        const splitLeft = pageDoc.splitTextToSize(leftText, sideWidth);
+        const splitRight = pageDoc.splitTextToSize(rightText, sideWidth);
+
+        // Positioning
+        pageDoc.text(splitLeft, 14, footerY);
+        pageDoc.text(splitRight, pageWidth - 14, footerY, { align: 'right' });
+
+        // Center-aligned Page Info
+        pageDoc.setFont("helvetica", "bold");
+        pageDoc.setTextColor(107, 114, 128); // Slightly darker for page info
+        pageDoc.text(pageInfo, pageWidth / 2, footerY, { align: 'center' });
+    };
+
+    // 2. Reference Summary Section
+    let currentY = 70;
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Reference Details", 14, currentY);
+    currentY += 2;
+    doc.setDrawColor(229, 231, 235);
+    doc.line(14, currentY, pageWidth - 14, currentY);
+    currentY += 8;
+
+    // Data Grid for Reference Info
+    const details = [
+        ["Subject:", reference.subject || "N/A"],
+        ["Ref ID:", reference.refId || "N/A"],
+        ["Status:", reference.status || "N/A"],
+        ["Priority:", reference.priority || "N/A"],
+        ["Delivery Mode:", reference.deliveryMode || "N/A"],
+        ["E-office No:", reference.eofficeNo || "N/A"],
+        ["Created By:", getUserDisplay(reference.createdBy)],
+        ["Created On:", new Date(reference.createdAt).toLocaleDateString()],
+        ["Latest Remarks:", reference.remarks || "No remarks provided."]
+    ];
+
+    autoTable(doc, {
+        body: details,
+        startY: currentY,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+            0: { fontStyle: 'bold', cellWidth: 40, textColor: [79, 70, 229] },
+            1: { cellWidth: 'auto' }
+        },
+        margin: { left: 14, right: 14, top: 65, bottom: 25 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    // 3. Movement Flow Section
+    // Safety check: if currentY is too close to bottom, move to next page
+    if (currentY > pageHeight - 50) {
+        doc.addPage();
+        currentY = 70;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Movement History", 14, currentY);
+    currentY += 2;
+    doc.line(14, currentY, pageWidth - 14, currentY);
+    currentY += 8;
+
+    const movementHeaders = ["Date", "Action By", "Status", "Remarks", "Marked To"];
+    const movementRows = movements.map(m => [
+        new Date(m.movementDate).toLocaleDateString(),
+        getUserDisplay(m.performedBy),
+        m.statusOnMovement,
+        m.remarks || "-",
+        Array.isArray(m.markedTo)
+            ? m.markedTo.map((u: any) => getUserDisplay(u)).join("; ")
+            : getUserDisplay(m.markedTo)
+    ]);
+
+    // Dynamic columns based on orientation
+    const colWidths: { [key: number]: any } = orientation === 'landscape'
+        ? { 0: { cellWidth: 25 }, 1: { cellWidth: 55 }, 2: { cellWidth: 35 }, 3: { cellWidth: 'auto' }, 4: { cellWidth: 55 } }
+        : { 0: { cellWidth: 22 }, 1: { cellWidth: 45 }, 2: { cellWidth: 30 }, 3: { cellWidth: 'auto' }, 4: { cellWidth: 45 } };
+
+    autoTable(doc, {
+        head: [movementHeaders],
+        body: movementRows,
+        startY: currentY,
+        styles: { fontSize: orientation === 'landscape' ? 9 : 8, cellPadding: orientation === 'landscape' ? 4 : 3, valign: 'middle' },
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        columnStyles: colWidths,
+        margin: { top: 65, bottom: 25 }
+    });
+
+    // 4. Final Decoration (Apply to all pages)
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        drawHeader(doc);
+        drawFooter(doc, i, totalPages);
+    }
 
     doc.save(`${filename}.pdf`);
 };

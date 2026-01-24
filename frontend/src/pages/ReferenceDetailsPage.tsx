@@ -12,7 +12,9 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { getReferenceById, handleReopenAction, bulkUpdateReferences } from "../services/globalReferences.api";
 import { getLocalReferenceById, bulkUpdateLocalReferences } from "../services/localReferences.api";
-import { Eye, EyeOff, Archive, Undo2, Shield } from "lucide-react";
+import { Eye, EyeOff, Archive, Undo2, Shield, Printer } from "lucide-react";
+import { exportReferenceReportPDF } from "../utils/exportUtils";
+import logo2 from "../assets/images/logo2.svg";
 import type { Reference } from "../types/Reference.type";
 import Button from "../components/ui/Button";
 import { ArrowLeft, Flag, Globe, Building2 } from "lucide-react";
@@ -60,6 +62,7 @@ function ReferenceDetailsPage() {
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [refType, setRefType] = useState<'GlobalReference' | 'LocalReference'>('GlobalReference');
     const [processingAction, setProcessingAction] = useState(false);
+    const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>('landscape');
 
     // Track which movements have their admin lists expanded
     const { showMessage, showConfirm } = useMessageBox();
@@ -190,6 +193,16 @@ function ReferenceDetailsPage() {
         }
     };
 
+    const handlePrint = async () => {
+        if (!data) return;
+        const { reference, movements } = data;
+        const filename = `${reference.refId || 'Reference'}-Report`;
+        const title = `${refType === 'LocalReference' ? 'Local' : 'Global'} Reference Movement Report`;
+        const exportedBy = currentUser ? `${currentUser.fullName} (${currentUser.email})` : 'System';
+
+        await exportReferenceReportPDF(reference, movements, title, filename, exportedBy, logo2, printOrientation);
+    };
+
     const openUserProfile = (userId: string) => {
         if (userId) {
             setSelectedUserId(userId);
@@ -270,15 +283,45 @@ function ReferenceDetailsPage() {
     return (
         <div className="container mx-auto p-4">
             {/* Back button */}
-            <button
-                onClick={() => {
-                    navigate(-1);
-                }}
-                className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-            >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {refType === 'LocalReference' ? 'Back to Local References' : 'Back to Global References'}
-            </button>
+            <div className="flex justify-between items-center mb-6">
+                <button
+                    onClick={() => {
+                        navigate(-1);
+                    }}
+                    className="flex items-center text-gray-600 hover:text-gray-900"
+                >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    {refType === 'LocalReference' ? 'Back to Local References' : 'Back to Global References'}
+                </button>
+
+                {/* Orientation Selection & Print Action */}
+                <div className="flex items-center gap-3">
+                    <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+                        <button
+                            onClick={() => setPrintOrientation('portrait')}
+                            className={`px-3 py-1 text-xs rounded-md transition-all ${printOrientation === 'portrait' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
+                            title="Portrait Mode"
+                        >
+                            Portrait
+                        </button>
+                        <button
+                            onClick={() => setPrintOrientation('landscape')}
+                            className={`px-3 py-1 text-xs rounded-md transition-all ${printOrientation === 'landscape' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
+                            title="Landscape Mode"
+                        >
+                            Landscape
+                        </button>
+                    </div>
+
+                    <Button
+                        label="Print"
+                        variant="secondary"
+                        className="h-10 w-32 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700 uppercase tracking-wider mr-6"
+                        icon={<Printer className="w-4 h-4" />}
+                        onClick={handlePrint}
+                    />
+                </div>
+            </div>
 
             {/* Reopen Request Banner - Visible to Admins AND Requester */}
             {reference.reopenRequest && reference.status === 'Closed' && (
@@ -432,7 +475,7 @@ function ReferenceDetailsPage() {
                                                                             <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2 border-b pb-1">Assigned Admins</p>
                                                                             <div className="space-y-1.5">
                                                                                 {movement.markedTo.map((m: any, idx: number) => (
-                                                                                    <div key={idx} className="flex flex-col">
+                                                                                    <div key={m._id || idx} className="flex flex-col">
                                                                                         <button
                                                                                             onClick={() => openUserProfile(getUserId(m))}
                                                                                             className="text-xs text-indigo-600 hover:underline text-left font-medium"
@@ -524,7 +567,8 @@ function ReferenceDetailsPage() {
                                 <div>
                                     <Button
                                         label="Update"
-                                        className="px-4 py-2 text-sm font-medium whitespace-nowrap shadow-sm"
+                                        variant="primary"
+                                        className="h-10 w-32 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold uppercase tracking-wider"
                                         onClick={() => setIsUpdateModalOpen(true)}
                                         disabled={!canUpdate}
                                     />

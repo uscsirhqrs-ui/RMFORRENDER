@@ -24,6 +24,7 @@ import Button from "../../components/ui/Button";
 import StatusCard from "../../components/dashboard/StatusCard";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import logo2 from "../../assets/images/logo2.svg";
 
 import { getAllLocalReferences, getLocalDashboardStats, getLocalReferenceFilters } from "../../services/localReferences.api";
 import type { Reference } from "../../types/Reference.type";
@@ -451,6 +452,7 @@ function LocalReferencesPage() {
                             const res = await getAllLocalReferences(1, 10000, filters, sortConfig ? { sortBy: sortConfig.key, sortOrder: sortConfig.direction } : {});
                             return res.data?.data || [];
                         }}
+                        logoUrl={logo2}
                         className="h-10 px-6 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700"
                     />
                     <Button

@@ -25,6 +25,7 @@ import StatusCard from "../../components/dashboard/StatusCard";
 import DropdownWithCheckboxes from "../../components/ui/DropDownWithCheckBoxes";
 import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import logo2 from "../../assets/images/logo2.svg";
 
 import { getAllReferences, getDashboardStats, getReferenceFilters } from "../../services/globalReferences.api";
 import type { Reference } from "../../types/Reference.type";
@@ -519,6 +520,7 @@ function GlobalReferencesPage() {
                                 const res = await getAllReferences(1, 10000, filters, sort);
                                 return res.data?.data || [];
                             }}
+                            logoUrl={logo2}
                             className="h-10 px-6 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700"
                         />
                         <Button
