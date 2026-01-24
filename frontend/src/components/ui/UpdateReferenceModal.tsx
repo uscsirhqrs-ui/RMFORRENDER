@@ -612,11 +612,11 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                             </div>
                         )}
 
-                        <div className="pt-4 flex gap-3 justify-end">
+                        <div className="pt-4 flex flex-col sm:flex-row gap-3 sm:justify-end">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                                className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
                             >
                                 Cancel
                             </button>
@@ -624,7 +624,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                                 <button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                                    className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all shadow-md font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {isLoading ? (
                                         <>
@@ -654,11 +654,11 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                         <p className="text-gray-600">
                             You are about to close this reference. Once closed, only <span className="font-semibold text-gray-900">System Admins</span> can reopen it.
                         </p>
-                        <div className="flex gap-3 justify-center pt-2">
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmClose(false)}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                                className="w-full sm:w-auto px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
                             >
                                 Cancel
                             </button>
@@ -666,7 +666,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                                 type="button"
                                 onClick={performUpdate}
                                 disabled={isLoading}
-                                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md font-medium flex items-center gap-2"
+                                className="w-full sm:w-auto px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all shadow-md font-medium flex items-center justify-center gap-2"
                             >
                                 {isLoading ? (
                                     <>

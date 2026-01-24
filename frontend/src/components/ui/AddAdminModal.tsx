@@ -228,13 +228,13 @@ const AddAdminModal = ({ isOpen, onClose, onSuccess }: AddAdminModalProps) => {
                         </div>
                     </div>
 
-                    <div className="pt-4 flex gap-3">
+                    <div className="pt-4 flex flex-col sm:flex-row gap-3">
                         <Button
                             type="button"
                             variant="secondary"
                             label="Cancel"
                             onClick={onClose}
-                            className="flex-1 py-2.5 font-bold"
+                            className="w-full sm:flex-1 py-2.5 font-bold"
                         />
                         <Button
                             type="submit"
@@ -242,7 +242,7 @@ const AddAdminModal = ({ isOpen, onClose, onSuccess }: AddAdminModalProps) => {
                             label={isSuperadmin ? "Create Inter Lab sender" : "Create Delegated Admin"}
                             loading={loading}
                             disabled={loading}
-                            className="flex-1 py-2.5 font-bold shadow-lg shadow-indigo-500/20"
+                            className="w-full sm:flex-1 py-2.5 font-bold shadow-lg shadow-indigo-500/20"
                         />
                     </div>
                 </form>

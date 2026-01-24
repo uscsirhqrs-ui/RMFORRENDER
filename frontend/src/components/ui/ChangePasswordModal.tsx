@@ -121,11 +121,12 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
                             required
                         />
 
-                        <div className="pt-2 flex gap-3 justify-end">
+                        <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
                             <Button
                                 variant="secondary"
                                 type="button"
                                 onClick={onClose}
+                                className="w-full sm:w-auto"
                             >
                                 Cancel
                             </Button>
@@ -135,6 +136,7 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ isOpen, onClo
                                 disabled={isLoading}
                                 loading={isLoading}
                                 icon={isLoading && <Loader2 className="w-4 h-4" />}
+                                className="w-full sm:w-auto"
                             >
                                 {isLoading ? 'Updating...' : 'Update Password'}
                             </Button>

@@ -172,10 +172,10 @@ const UserProfileViewModal: React.FC<UserProfileViewModalProps> = ({ isOpen, onC
                 </div>
 
                 {/* Footer */}
-                <div className="px-8 py-3 bg-gray-50/50 border-t border-gray-100 flex justify-end shrink-0">
+                <div className="px-8 py-3 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row justify-end shrink-0 gap-3">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-bold text-gray-500 hover:text-gray-900 shadow-sm hover:shadow-md transition-all font-heading tracking-wider"
+                        className="w-full sm:w-auto px-6 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-bold text-gray-500 hover:text-gray-900 shadow-sm hover:shadow-md transition-all font-heading tracking-wider"
                     >
                         Dismiss
                     </button>

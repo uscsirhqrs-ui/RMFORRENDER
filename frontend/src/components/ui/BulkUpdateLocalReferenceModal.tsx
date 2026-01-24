@@ -142,18 +142,18 @@ const BulkUpdateLocalReferenceModal: React.FC<BulkUpdateLocalReferenceModalProps
                             />
                         </div>
 
-                        <div className="pt-4 flex gap-3 justify-end">
+                        <div className="pt-4 flex flex-col sm:flex-row gap-3 sm:justify-end">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-6 h-10 text-gray-400 hover:text-gray-600 font-bold text-xs uppercase tracking-widest transition-colors font-heading"
+                                className="w-full sm:w-auto px-6 h-10 text-gray-400 hover:text-gray-600 font-bold text-xs uppercase tracking-widest transition-colors font-heading"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 disabled={isLoading || !assignTo}
-                                className="px-8 h-10 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 font-bold text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-heading"
+                                className="w-full sm:w-auto px-8 h-10 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 font-bold text-xs uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-heading"
                             >
                                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                                 Assign

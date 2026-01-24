@@ -120,20 +120,20 @@ const ReopenRequestModal = ({ isOpen, onClose, reference, onSuccess, referenceTy
                             />
                         </div>
 
-                        <div className="pt-2 flex gap-3 justify-end">
+                        <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:justify-end">
                             <Button
                                 type="button"
                                 variant="secondary"
                                 onClick={onClose}
                                 label="Cancel"
-                                className="w-full sm:w-auto"
+                                className="w-full sm:w-auto flex justify-center !text-center"
                             />
                             <Button
                                 type="submit"
                                 variant="primary"
                                 label={loading ? "Sending..." : "Send Request"}
                                 disabled={loading || (message?.type === 'success')}
-                                className="w-full sm:w-auto"
+                                className="w-full sm:w-auto flex justify-center text-center!"
                             />
                         </div>
                     </form>
