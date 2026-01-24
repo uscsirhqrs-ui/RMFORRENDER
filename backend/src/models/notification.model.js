@@ -31,7 +31,12 @@ const NotificationSchema = new Schema({
     },
     referenceId: {
         type: Schema.Types.ObjectId,
-        ref: 'Reference'
+        ref: 'Reference' // This ref name might be ambiguous if we have multiple models, but keeping for backward compat check.
+    },
+    referenceType: {
+        type: String,
+        enum: ['LocalReference', 'GlobalReference', 'Form', null],
+        default: null
     },
     isRead: {
         type: Boolean,

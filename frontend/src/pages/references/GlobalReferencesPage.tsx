@@ -723,7 +723,7 @@ function GlobalReferencesPage() {
                                         },
                                         refId: (row: Reference) => (
                                             <Link
-                                                to={`/references/${row._id}`}
+                                                to={`/references/global/${row._id}`}
                                                 className="text-gray-900 font-bold text-xs hover:text-indigo-600 transition-colors hover:underline"
                                                 title={`View details for ${row.refId}`}
                                             >
@@ -744,7 +744,7 @@ function GlobalReferencesPage() {
                                                 <div className="flex flex-col overflow-visible">
                                                     <div className="flex items-center gap-2 hover:underline">
                                                         <Link
-                                                            to={`/references/${row._id}`}
+                                                            to={`/references/global/${row._id}`}
                                                             className="font-bold text-gray-900 hover:text-indigo-600 transition-colors truncate block leading-none font-heading"
                                                             title={row.subject}
                                                         >

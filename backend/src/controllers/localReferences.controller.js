@@ -250,7 +250,8 @@ export const createLocalReference = asyncHandler(async (req, res) => {
             'REFERENCE_ASSIGNED',
             'New Local Reference',
             `You have been assigned a new local reference: ${subject}`,
-            newReference._id
+            newReference._id,
+            'LocalReference'
         );
     } catch (error) {
         console.error("Notification failed for local reference:", error);
@@ -265,6 +266,7 @@ export const createLocalReference = asyncHandler(async (req, res) => {
 export const getLocalReferenceById = asyncHandler(async (req, res) => {
     const reference = await LocalReference.findById(req.params.id)
         .populate('createdBy markedTo', 'fullName email labName designation division')
+        .populate('reopenRequest.requestedBy', 'fullName email labName designation division')
         .lean();
 
     if (!reference) {
@@ -516,7 +518,8 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
                     'REFERENCE_ASSIGNED',
                     'Local Reference Assigned',
                     `Local Reference ${ref.refId} has been assigned to you.`,
-                    ref._id
+                    ref._id,
+                    'LocalReference'
                 ).catch(err => console.error("Notification Error", err));
             }
 
@@ -724,7 +727,8 @@ export const issueLocalReminder = asyncHandler(async (req, res) => {
                 'REFERENCE_REMINDER',
                 'Local Reference Reminder',
                 `Reminder for reference: ${reference.subject}. ${remarks}`,
-                reference._id
+                reference._id,
+                'LocalReference'
             );
         }
     }

@@ -400,7 +400,7 @@ const ManageLocalReferencesPage = () => {
                             </div>
                         ),
                         refId: (row) => (
-                            <Link to={`/references/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline font-heading">
+                            <Link to={`/references/local/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline font-heading">
                                 {row.refId}
                             </Link>
                         ),

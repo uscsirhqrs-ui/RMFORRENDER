@@ -814,7 +814,8 @@ export const createReference = asyncHandler(async (req, res, next) => {
         'REFERENCE_ASSIGNED',
         'New Reference Assigned',
         `You have been assigned a new reference: ${subject}`,
-        newReference._id
+        newReference._id,
+        'GlobalReference'
       );
     }
   } catch (emailError) {
@@ -1052,7 +1053,8 @@ export const updateReference = asyncHandler(async (req, res, next) => {
               'REFERENCE_ASSIGNED',
               `${refType} Assigned/Updated`,
               `A ${refType.toLowerCase()} has been assigned or updated to you: ${reference.subject}`,
-              reference._id
+              reference._id,
+              onModel
             ).catch(err => console.error(`Failed to create notification for ${id}:`, err))
           );
         }
@@ -1247,7 +1249,8 @@ export const bulkUpdateReferences = asyncHandler(async (req, res, next) => {
               'REFERENCE_ASSIGNED',
               'Reference Assigned',
               `You have been assigned a reference via bulk update: ${ref.subject}`,
-              ref._id
+              ref._id,
+              'GlobalReference'
             );
           } catch (e) {
             console.error(`Failed to notify for ref ${ref.refId}:`, e);
@@ -1325,7 +1328,8 @@ export const issueReminder = asyncHandler(async (req, res, next) => {
           'REMINDER',
           `Action Reminder: ${priority}`,
           `Reminder for reference "${reference.subject}": ${remarks || 'Please update status.'}`,
-          referenceId
+          referenceId,
+          'GlobalReference'
         );
       }
 
@@ -1478,7 +1482,8 @@ export const requestReopen = asyncHandler(async (req, res, next) => {
             'REOPEN_REQUEST',
             'Reopening Request',
             `${requesterName} requested to reopen: ${reference.subject}`,
-            reference._id
+            reference._id,
+            onModel
           );
         }
       }
@@ -1597,7 +1602,8 @@ export const handleReopenAction = asyncHandler(async (req, res, next) => {
     action === 'approve' ? 'REOPEN_APPROVED' : 'REOPEN_REJECTED',
     `Reopening Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
     `Your request to reopen reference "${reference.subject}" has been ${action === 'approve' ? 'approved' : 'rejected'}.`,
-    reference._id
+    reference._id,
+    onModel
   );
 
   res.status(200).json(new ApiResponse(200, `Reopening request ${action}ed successfully`, reference));

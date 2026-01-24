@@ -305,14 +305,14 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="px-4 py-4 sm:px-8 sm:py-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center shrink-0">
-                    <div className="flex gap-2">
+                <div className="px-4 py-4 sm:px-8 sm:py-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col sm:flex-row justify-between items-center shrink-0 gap-3">
+                    <div className="flex gap-2 w-full sm:w-auto order-2 sm:order-1">
                         <Button
                             variant="secondary"
                             onClick={handlePrevious}
                             disabled={currentIndex === 0 || isSaving}
                             icon={<ChevronLeft className="w-4 h-4" />}
-                            className="bg-white dark:bg-gray-700"
+                            className="bg-white dark:bg-gray-700 flex-1 sm:flex-none justify-center"
                         >
                             Previous
                         </Button>
@@ -322,19 +322,21 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                             disabled={currentIndex === selectedUsers.length - 1 || isSaving}
                             icon={<ChevronRight className="w-4 h-4" />}
                             iconPosition="right"
-                            className="bg-white dark:bg-gray-700"
+                            className="bg-white dark:bg-gray-700 flex-1 sm:flex-none justify-center"
 
                         >
                             Next
                         </Button>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 w-full sm:w-auto order-1 sm:order-2">
                         <Button
                             variant="primary"
                             onClick={handleSave}
                             disabled={isSaving}
                             icon={isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            className="flex-1 sm:flex-none justify-center"
+                            fullWidth
                         >
                             {isSaving ? 'Processing...' : 'Save & Continue'}
                         </Button>
@@ -342,7 +344,7 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                             <Button
                                 variant="primary"
                                 onClick={onClose}
-                                className="bg-black! bg-none text-white hover:bg-gray-800! border-none px-6 shadow-none"
+                                className="bg-black! bg-none text-white hover:bg-gray-800! border-none px-6 shadow-none flex-1 sm:flex-none justify-center"
                             >
                                 Finish
                             </Button>

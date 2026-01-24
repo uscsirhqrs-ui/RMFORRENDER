@@ -9,6 +9,7 @@
  */
 
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import { Mail, Shield, Camera, Save, X, Building2, UserCircle, Briefcase, Bell } from 'lucide-react';
 import ChangePasswordModal from '../components/ui/ChangePasswordModal';
 import Button from '../components/ui/Button';
@@ -198,6 +199,7 @@ const ProfilePage = () => {
 
         // 20KB limit check
         if (file.size > 20 * 1024) {
+            toast.error("Image size must be less than 20KB");
             setError("Image size must be less than 20KB");
             return;
         }
@@ -210,15 +212,19 @@ const ProfilePage = () => {
         try {
             const response = await updateAvatar(formData);
             if (response.success) {
+                toast.success("Avatar updated successfully");
                 setSuccessMessage("Avatar updated successfully");
                 if (currentUser) {
                     login({ ...currentUser, avatar: response.data.avatar });
                 }
             } else {
+                toast.error(response.message);
                 setError(response.message);
             }
         } catch (err: any) {
-            setError(err.message || "Failed to upload avatar");
+            const msg = err.message || "Failed to upload avatar";
+            toast.error(msg);
+            setError(msg);
         } finally {
             setIsLoading(false);
         }

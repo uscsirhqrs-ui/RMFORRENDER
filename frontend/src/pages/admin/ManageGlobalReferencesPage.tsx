@@ -391,13 +391,13 @@ const ManageGlobalReferencesPage = () => {
                             </div>
                         ),
                         refId: (row) => (
-                            <Link to={`/references/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
+                            <Link to={`/references/global/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
                                 {row.refId}
                             </Link>
                         ),
                         subject: (row) => (
                             <div className="flex flex-col">
-                                <Link to={`/references/${row._id}`} className="font-semibold text-gray-900 truncate hover:text-indigo-600 hover:underline" title={row.subject}>
+                                <Link to={`/references/global/${row._id}`} className="font-semibold text-gray-900 truncate hover:text-indigo-600 hover:underline" title={row.subject}>
                                     {row.subject}
                                 </Link>
                                 {row.isHidden && (

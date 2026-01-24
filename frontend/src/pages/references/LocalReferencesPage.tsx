@@ -664,7 +664,7 @@ function LocalReferencesPage() {
                                 );
                             },
                             refId: (row: any) => (
-                                <Link to={`/references/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
+                                <Link to={`/references/local/${row._id}`} className="text-indigo-600 font-bold text-xs hover:underline">
                                     {row.refId}
                                 </Link>
                             ),
@@ -682,7 +682,7 @@ function LocalReferencesPage() {
                                     <div className="flex flex-col overflow-visible">
                                         <div className="flex items-center gap-2 hover:underline">
                                             <Link
-                                                to={`/references/${row._id}`}
+                                                to={`/references/local/${row._id}`}
                                                 className="font-bold text-gray-900 hover:text-indigo-600 transition-colors truncate block leading-none font-heading text-sm"
                                                 title={row.subject}
                                             >

@@ -155,7 +155,28 @@ const __dirname = path.dirname(__filename);
 
 // Serve static files from the "public" directory (one level up from src if public is in backend root)
 // Assuming directory structure: backend/src/app.js  =>  backend/public
-app.use(express.static(path.join(__dirname, "../public")));
+const publicDir = path.join(__dirname, "../public");
+const tempDir = path.join(__dirname, "../public/temp");
+
+if (!fs.existsSync(publicDir)) {
+  try {
+    fs.mkdirSync(publicDir, { recursive: true });
+    console.log("Created public directory");
+  } catch (err) {
+    console.error("Failed to create public directory:", err);
+  }
+}
+
+if (!fs.existsSync(tempDir)) {
+  try {
+    fs.mkdirSync(tempDir, { recursive: true });
+    console.log("Created public/temp directory for uploads");
+  } catch (err) {
+    console.error("Failed to create public/temp directory:", err);
+  }
+}
+
+app.use(express.static(publicDir));
 
 // DEBUG ROUTE: Check file system capability
 app.get('/api/debug-diagnostics', (req, res) => {

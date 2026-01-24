@@ -11,6 +11,8 @@ import { switchUserRole } from "../../services/user.api.ts";
 import { ChevronDown, Building2, Globe, Crown } from "lucide-react";
 import toast from "react-hot-toast";
 import logo2 from "../../assets/images/logo2.svg";
+import { getLocalReferenceById } from "../../services/localReferences.api.ts";
+import { getReferenceById } from "../../services/globalReferences.api.ts";
 
 function Header() {
   console.log("Rendering Header - vMobile2");
@@ -101,7 +103,36 @@ function Header() {
           navigate('/data-collection/shared');
         }
       } else if (notification.referenceId) {
-        navigate(`/references/${notification.referenceId}`);
+      } else if (notification.referenceId) {
+
+        // 1. New Efficient Routing (if referenceType is present)
+        if (notification.referenceType === 'LocalReference') {
+          navigate(`/references/local/${notification.referenceId}`);
+          return;
+        } else if (notification.referenceType === 'GlobalReference') {
+          navigate(`/references/global/${notification.referenceId}`);
+          return;
+        }
+
+        // 2. Legacy Fallback Routing (try Local then Global checks)
+        try {
+          const localCheck = await getLocalReferenceById(notification.referenceId);
+          if (localCheck.success && localCheck.data) {
+            navigate(`/references/local/${notification.referenceId}`);
+            return;
+          }
+        } catch (e) { /* Ignore */ }
+
+        try {
+          const globalCheck = await getReferenceById(notification.referenceId);
+          if (globalCheck.success && globalCheck.data) {
+            navigate(`/references/global/${notification.referenceId}`);
+            return;
+          }
+        } catch (e) { /* Ignore */ }
+
+        // Fallback if neither found (or error) - maybe specific error page or stay put with toast
+        toast.error("Reference not found");
       }
     } catch (error) {
       console.error("Error handling notification click:", error);

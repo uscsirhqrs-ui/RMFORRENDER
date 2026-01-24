@@ -14,14 +14,15 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import { Notification } from '../models/notification.model.js';
 
 // Internal Helper to create notification
-export const createNotification = async (recipientId, type, title, message, referenceId = null) => {
+export const createNotification = async (recipientId, type, title, message, referenceId = null, referenceType = null) => {
     try {
         await Notification.create({
             recipient: recipientId,
             type,
             title,
             message,
-            referenceId
+            referenceId,
+            referenceType
         });
     } catch (error) {
         console.error(`Failed to create notification for user ${recipientId}:`, error);

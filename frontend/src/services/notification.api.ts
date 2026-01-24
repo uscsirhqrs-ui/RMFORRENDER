@@ -18,6 +18,7 @@ export interface Notification {
     title: string;
     message: string;
     referenceId?: string;
+    referenceType?: 'LocalReference' | 'GlobalReference' | 'Form';
     isRead: boolean;
     createdAt: string;
 }

@@ -14,7 +14,10 @@ import GlobalReferencesPage from "./pages/references/GlobalReferencesPage";
 import LocalReferencesPage from "./pages/references/LocalReferencesPage";
 import ManageGlobalReferencesPage from "./pages/admin/ManageGlobalReferencesPage";
 import ManageLocalReferencesPage from "./pages/admin/ManageLocalReferencesPage";
-import ReferenceDetailsPage from "./pages/ReferenceDetailsPage";
+
+import LocalReferenceDetailsPage from "./pages/LocalReferenceDetailsPage";
+import GlobalReferenceDetailsPage from "./pages/GlobalReferenceDetailsPage";
+import VIPReferenceDetailsPage from "./pages/VIPReferenceDetailsPage";
 import AuthPage from "./pages/register-login/AuthPage";
 import ParichayCallback from "./pages/oauth/ParichayCallback";
 
@@ -67,7 +70,11 @@ function App() {
               <Route path="/admin/references/global" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES]}><ManageGlobalReferencesPage /></ProtectedRoute>} />
               <Route path="/admin/references/local" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES]}><ManageLocalReferencesPage /></ProtectedRoute>} />
 
-              <Route path="/references/:id" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES]}><ReferenceDetailsPage /></ProtectedRoute>} />
+              <Route path="/admin/references/local" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES]}><ManageLocalReferencesPage /></ProtectedRoute>} />
+
+              <Route path="/references/global/:id" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES]}><GlobalReferenceDetailsPage /></ProtectedRoute>} />
+              <Route path="/references/local/:id" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES]}><LocalReferenceDetailsPage /></ProtectedRoute>} />
+              <Route path="/references/vip/:id" element={<ProtectedRoute><VIPReferenceDetailsPage /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute allowedRoles={['Inter Lab sender', 'Delegated Admin', SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]}><UsersPage /></ProtectedRoute>} />
               <Route path="/audit-trails" element={<ProtectedRoute allowedRoles={[SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_AUDIT_TRAILS]}><AuditTrailsPage /></ProtectedRoute>} />
               <Route path="/system-settings" element={<ProtectedRoute allowedRoles={[SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_SYSTEM_CONFIGURATION]}><SystemSettingsPage /></ProtectedRoute>} />
