@@ -6,6 +6,7 @@ import Button from './Button';
 interface ColumnDef {
     header: string;
     dataKey: string;
+    formatter?: (val: any, row: any) => string;
 }
 
 interface ExportButtonProps {
@@ -55,9 +56,14 @@ const ExportButton: React.FC<ExportButtonProps> = ({
                     const keys = col.dataKey.split('.');
                     let val = row;
                     keys.forEach(k => {
-                        val = (val && val[k]) ? val[k] : '';
+                        val = (val && val[k] !== undefined) ? val[k] : '';
                     });
-                    newRow[col.header] = val;
+
+                    if (col.formatter) {
+                        newRow[col.header] = col.formatter(val, row);
+                    } else {
+                        newRow[col.header] = val;
+                    }
                 });
                 return newRow;
             });
@@ -65,7 +71,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
             if (format === 'csv') {
                 exportToCSV(processedData, finalFilename);
             } else {
-                exportToPDF(exportData, columns, title, finalFilename, exportedBy, filterSummary, pdfOrientation);
+                exportToPDF(processedData, columns, title, finalFilename, exportedBy, filterSummary, pdfOrientation);
             }
 
         } catch (error) {

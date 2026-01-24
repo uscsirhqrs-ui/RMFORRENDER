@@ -113,23 +113,14 @@ export const exportToPDF = (
     const tableBody = data.map(row => {
         const rowData: any = {};
         columns.forEach(col => {
-            // Handle nested properties if dataKey has dots (e.g. "markedToDetails.fullName")
-            const keys = col.dataKey.split('.');
-            let val = row;
-            for (const key of keys) {
-                if (val && typeof val === 'object') {
-                    val = val[key];
-                } else {
-                    val = '';
-                    break;
-                }
-            }
-            rowData[col.dataKey] = val || '';
+            // In the simplified version, the row already contains the formatted values
+            // with keys matching the column headers
+            rowData[col.header] = row[col.header] || '';
         });
         return rowData;
     });
 
-    const tableColumns = columns.map(c => ({ header: c.header, dataKey: c.dataKey }));
+    const tableColumns = columns.map(c => ({ header: c.header, dataKey: c.header }));
 
     autoTable(doc, {
         head: [tableColumns.map(c => c.header)],

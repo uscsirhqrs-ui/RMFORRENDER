@@ -448,15 +448,58 @@ function GlobalReferencesPage() {
                                 { header: 'Subject', dataKey: 'subject' },
                                 { header: 'Priority', dataKey: 'priority' },
                                 { header: 'Status', dataKey: 'status' },
-                                { header: 'Created By', dataKey: 'createdByDetails.fullName' },
-                                { header: 'Marked To', dataKey: 'markedToDetails.0.fullName' },
-                                { header: 'Division', dataKey: 'markedToDetails.0.division' },
-                                { header: 'Date', dataKey: 'createdAt' },
+                                {
+                                    header: 'Created By',
+                                    dataKey: 'createdByDetails',
+                                    formatter: (val) => {
+                                        if (!val) return 'N/A';
+                                        const name = val.fullName || 'Unknown';
+                                        const designation = val.designation ? `, ${val.designation}` : '';
+                                        const lab = val.labName ? ` (${val.labName})` : '';
+                                        return `${name}${designation}${lab}`;
+                                    }
+                                },
+                                {
+                                    header: 'Marked To',
+                                    dataKey: 'markedToDetails',
+                                    formatter: (val) => {
+                                        if (!val || !Array.isArray(val) || val.length === 0) return 'N/A';
+                                        return val.map(u => {
+                                            const name = u.fullName || 'Unknown';
+                                            const designation = u.designation ? `, ${u.designation}` : '';
+                                            const lab = u.labName ? ` (${u.labName})` : '';
+                                            return `${name}${designation}${lab}`;
+                                        }).join('; ');
+                                    }
+                                },
+                                {
+                                    header: 'Division',
+                                    dataKey: 'markedToDetails',
+                                    formatter: (val) => {
+                                        if (!val || !Array.isArray(val) || val.length === 0) return 'N/A';
+                                        const divisions = Array.from(new Set(val.map(u => u.division).filter(Boolean)));
+                                        return divisions.length > 0 ? divisions.join(', ') : 'N/A';
+                                    }
+                                },
+                                {
+                                    header: 'Date',
+                                    dataKey: 'createdAt',
+                                    formatter: (val) => val ? new Date(val).toLocaleDateString() : 'N/A'
+                                },
                                 { header: 'Remarks', dataKey: 'remarks' }
                             ]}
                             filename={`Global-References-${user?.labName}`}
                             title={`Global References - ${user?.labName}`}
                             exportedBy={user ? `${user.fullName} (${user.email})` : 'Unknown User'}
+                            filterSummary={[
+                                selectedStatuses.length > 0 && `Status: ${selectedStatuses.join(', ')}`,
+                                selectedPriorities.length > 0 && `Priority: ${selectedPriorities.join(', ')}`,
+                                selectedMarkedTo.length > 0 && `To: ${selectedMarkedTo.map(e => availableMarkedToUsers.find(u => u.email === e)?.fullName || e).join(', ')}`,
+                                selectedCreatedBy.length > 0 && `By: ${selectedCreatedBy.map(e => availableCreatedByUsers.find(u => u.email === e)?.fullName || e).join(', ')}`,
+                                selectedDivisions.length > 0 && `Div: ${selectedDivisions.join(', ')}`,
+                                subjectFilter && `Subject: "${subjectFilter}"`,
+                                pendingDaysFilter && `Pending >= ${pendingDaysFilter} Days`
+                            ].filter(Boolean).join(' | ')}
                             onExportAll={async () => {
                                 const filters = {
                                     status: selectedStatuses,
