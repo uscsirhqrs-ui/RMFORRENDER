@@ -86,8 +86,8 @@ function Table<T extends { [key: string]: any }>({
   // };
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm">
-      <table className="w-full table-fixed bg-white">
+    <div className="w-full overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+      <table className="w-full min-w-[1000px] table-fixed bg-white">
         <colgroup>
           {keys.map(key => (
             <col key={key} style={{ width: columnWidths?.[key] || (key === 'selection' ? '48px' : 'auto') }} />

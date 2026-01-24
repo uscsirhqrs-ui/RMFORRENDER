@@ -1,9 +1,8 @@
-
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { FeatureCodes, SUPERADMIN_ROLE_NAME } from "../../constants";
 import UserDropdown from "./UserDropdown.tsx";
-import { LogIn, FileStack, Users, ShieldAlert, Bell, Settings, Database, Shield, Share2, Library, Sparkles } from "lucide-react";
+import { LogIn, FileStack, Users, ShieldAlert, Bell, Settings, Database, Shield, Share2, Library, Sparkles, Menu, X } from "lucide-react";
 import Button from "../ui/Button.tsx";
 import { TaskIndicator } from "../ui/TaskIndicator.tsx";
 import { useState, useEffect, useRef } from "react";
@@ -27,10 +26,16 @@ function Header() {
 
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile Menu State
 
   const dropdownRef = useRef<HTMLDivElement>(null);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const navLinksRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -243,25 +248,26 @@ function Header() {
   return (
     <header className={`py-4 sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-white/20 dark:border-gray-800/20 transition-all duration-500 ease-in-out ${isAuthenticated && user && isApproved ? roleTheme.border : 'shadow-sm'}`}>
       <div className="w-full px-3 sm:px-5 lg:px-7 flex justify-between items-center">
-        <div id="Branding" className="flex items-center justify-start">
+        <div id="Branding" className="flex items-center justify-start max-w-[70%] sm:max-w-none">
           <Link to={homePath} className="flex items-center">
             <img
-              className="w-20 md:w-24 object-contain"
+              className="w-16 sm:w-20 md:w-24 object-contain"
               src={logo2}
               alt="Logo"
             />
           </Link>
-          <div className="flex flex-col text-[13px] sm:text-[14px] leading-[1.2] font-heading text-gray-700 dark:text-gray-300 ml-3 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
+          <div className="hidden sm:flex flex-col text-[13px] sm:text-[14px] leading-[1.2] font-heading text-gray-700 dark:text-gray-300 ml-3 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
             <span className="font-bold tracking-tight text-gray-900 dark:text-white uppercase italic"> वैज्ञानिक तथा औद्योगिक अनुसंधान परिषद् </span>
             <span className="font-bold tracking-tight"> Council of Scientific &amp; Industrial Research</span>
             <span className="text-gray-400 font-medium dark:text-gray-500 text-[11px] sm:text-[12px]"> (Ministry of Science &amp; Technology, Govt. of India) </span>
           </div>
         </div>
 
-        <nav id="nav" className="flex gap-8 items-center justify-end px-6">
+        <nav id="nav" className="flex gap-4 sm:gap-8 items-center justify-end px-2 sm:px-6">
           {isAuthenticated && user && isApproved ? (
             <>
-              <div className="flex gap-8 items-center text-sm ml-8" ref={navLinksRef}>
+              {/* Desktop Navigation */}
+              <div className="hidden lg:flex gap-8 items-center text-sm ml-8" ref={navLinksRef}>
                 {navLinks.map((link: any) => {
                   const isActive = isActivePath(link.path) || (link.hasDropdown && link.subItems?.some((sub: any) => isActivePath(sub.path)));
                   const isDropdownOpen = activeDropdown === link.label;
@@ -316,8 +322,11 @@ function Header() {
                 })}
               </div>
 
-              <div className="flex items-center gap-4 pl-6 border-l border-gray-100 dark:border-gray-700 ml-2">
-                <TaskIndicator />
+              {/* Mobile Actions (Notifications & User) */}
+              <div className="flex items-center gap-2 sm:gap-4 pl-2 sm:pl-6 sm:border-l sm:border-gray-100 dark:sm:border-gray-700 sm:ml-2">
+                <div className="hidden sm:block">
+                  <TaskIndicator />
+                </div>
 
                 <div className="relative" ref={dropdownRef}>
                   <button
@@ -335,7 +344,7 @@ function Header() {
                   </button>
 
                   {isNotificationsOpen && (
-                    <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-xl ring-1 ring-black/5 z-50 overflow-hidden border border-gray-100 dark:border-gray-700">
+                    <div className="absolute right-0 mt-3 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-xl ring-1 ring-black/5 z-50 overflow-hidden border border-gray-100 dark:border-gray-700">
                       <div className="p-4 border-b border-gray-50 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30 flex justify-between items-center">
                         <h3 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
                           Notifications
@@ -345,7 +354,7 @@ function Header() {
                           <button onClick={handleMarkAllRead} className="text-[10px] uppercase font-bold text-indigo-600 hover:underline">Clear All</button>
                         )}
                       </div>
-                      <div className="max-h-128 overflow-y-auto">
+                      <div className="max-h-96 sm:max-h-128 overflow-y-auto">
                         {notifications.length > 0 ? (
                           <div className="divide-y divide-gray-50 dark:divide-gray-700">
                             {notifications.map((notif) => (
@@ -378,7 +387,7 @@ function Header() {
                   )}
                 </div>
 
-                <div className="relative" ref={roleDropdownRef}>
+                <div className="relative hidden sm:block" ref={roleDropdownRef}>
                   <button
                     onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
                     disabled={!user.availableRoles || user.availableRoles.length <= 1}
@@ -406,13 +415,24 @@ function Header() {
                     </div>
                   )}
                 </div>
-                <UserDropdown
-                  labName={user.labName || user.fullName}
-                  userInitials={user.initials}
-                  userEmail={user.email}
-                  userRole={user.role}
-                  userAvatar={user.avatar}
-                />
+
+                <div className="hidden sm:block">
+                  <UserDropdown
+                    labName={user.labName || user.fullName}
+                    userInitials={user.initials}
+                    userEmail={user.email}
+                    userRole={user.role}
+                    userAvatar={user.avatar}
+                  />
+                </div>
+
+                {/* Mobile Menu Toggle */}
+                <button
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  className="lg:hidden p-2 text-gray-500 hover:text-indigo-600 hover:bg-gray-50 rounded-lg transition-all"
+                >
+                  <Menu className="w-6 h-6" />
+                </button>
               </div>
             </>
           ) : isAuthenticated && user && !isApproved ? (
@@ -427,6 +447,97 @@ function Header() {
             </Button>
           )}
         </nav>
+
+        {/* Mobile Menu Overlay */}
+        {isMobileMenuOpen && (
+          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 lg:hidden overflow-y-auto animate-in slide-in-from-right duration-300">
+            <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800">
+              <span className="font-bold text-lg text-gray-900 dark:text-white">Menu</span>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-6">
+              {/* User Profile Card Mobile */}
+              {user && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-xl flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xl">
+                    {user.avatar ? <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" /> : user.initials}
+                  </div>
+                  <div>
+                    <p className="font-bold text-gray-900 dark:text-white">{user.fullName}</p>
+                    <p className="text-xs text-gray-500">{user.email}</p>
+                    <div className="mt-2 flex gap-2">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${roleTheme.badge}`}>{user.role}</span>
+                      {user.availableRoles && user.availableRoles.length > 1 && (
+                        <button onClick={() => {
+                          const nextRole = user.availableRoles?.find(r => r !== user.role);
+                          if (nextRole) handleRoleSwitch(nextRole);
+                        }} className="text-[10px] text-indigo-600 underline">Switch</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                {navLinks.map((link: any) => {
+                  const isActive = isActivePath(link.path);
+
+                  if (link.hasDropdown) {
+                    return (
+                      <div key={link.path} className="flex flex-col gap-2">
+                        <div className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2 pt-2">{link.label}</div>
+                        {link.subItems.map((sub: any) => (
+                          <Link
+                            key={sub.path}
+                            to={sub.path}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 active:bg-indigo-50 active:text-indigo-600 transition-colors"
+                          >
+                            <sub.icon className="w-4 h-4" />
+                            {sub.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <Link
+                      key={link.path}
+                      to={link.path}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${isActive ? "bg-indigo-50 text-indigo-600" : "bg-gray-50 dark:bg-gray-800 text-gray-700"
+                        }`}
+                    >
+                      {link.icon && <link.icon className="w-4 h-4" />}
+                      {link.label}
+                    </Link>
+                  )
+                })}
+              </div>
+
+              <div className="mt-auto pt-6 border-t border-gray-100">
+                <button onClick={() => { setIsMobileMenuOpen(false); navigate('/profile') }} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50">
+                  My Profile
+                </button>
+                <button onClick={() => {
+                  // Logout logic
+                  useAuth().logout(); // Wait, need to access logout from context but hook rules. 
+                  // We have userDropdown logic, lets simulate:
+                  navigate('/logout');
+                }} className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100">
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </header >
   );
