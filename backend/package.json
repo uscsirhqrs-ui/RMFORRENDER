@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "build": "cd ../frontend && npm install && npm run build && node deploy.js"
   },
   "keywords": [
     "chai",
