@@ -86,7 +86,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
             />
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2">
                     <div className="py-2" role="menu">
                         {/* Orientation Select */}
                         <div className="px-4 py-2 border-b border-gray-100">

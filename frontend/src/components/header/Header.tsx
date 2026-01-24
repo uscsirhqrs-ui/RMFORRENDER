@@ -16,7 +16,7 @@ import { getReferenceById } from "../../services/globalReferences.api.ts";
 
 function Header() {
   console.log("Rendering Header - vMobile2");
-  const { user, isAuthenticated, login, hasPermission, isPermissionsLoading } = useAuth();
+  const { user, isAuthenticated, login, logout, hasPermission, isPermissionsLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -595,8 +595,8 @@ function Header() {
                 </button>
                 <button onClick={() => {
                   // Logout logic
-                  useAuth().logout(); // Wait, need to access logout from context but hook rules. 
-                  // We have userDropdown logic, lets simulate:
+                  // Logout logic
+                  logout();
                   navigate('/logout');
                 }} className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100">
                   Sign Out
