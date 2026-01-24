@@ -194,7 +194,7 @@ function Header() {
   const hasManageLocalAll = hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
   const hasManageGlobal = hasPermission(FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
 
-  const navLinks = (!isAuthenticated || !isApproved || isProfileIncomplete || isPermissionsLoading) ? [] : [
+  const navLinks = (!isAuthenticated || !isApproved || isProfileIncomplete) ? [] : [
     ...(hasOwnLabRef || hasInterLabRef ? [{
       path: hasOwnLabRef ? "/references/local" : "/references/global?scope=inter-lab",
       label: "References",
@@ -486,6 +486,9 @@ function Header() {
               )}
 
               <div className="flex flex-col gap-2">
+                {isPermissionsLoading && (
+                  <div className="px-4 py-2 text-xs text-indigo-500 font-bold animate-pulse">Syncing menu...</div>
+                )}
                 {navLinks.map((link: any) => {
                   const isActive = isActivePath(link.path);
 
