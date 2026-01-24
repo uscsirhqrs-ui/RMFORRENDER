@@ -139,7 +139,7 @@ const AddLocalReferenceModal: React.FC<AddLocalReferenceModalProps> = ({ isOpen,
                             Add Local Reference
                         </h3>
                         <p className="text-xs text-indigo-600 font-heading">Internal to {currentUser?.labName}</p>
-                        <p className="text-xs text-indigo-600 font-heading">CREATED BY USER: {currentUser?.email}</p>
+                        {/* <p className="text-xs text-indigo-600 font-heading">CREATED BY USER: {currentUser?.email}</p> */}
                     </div>
 
                     <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors text-indigo-400">
