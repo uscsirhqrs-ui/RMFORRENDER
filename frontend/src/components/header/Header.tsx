@@ -194,6 +194,16 @@ function Header() {
   const hasManageLocalAll = hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
   const hasManageGlobal = hasPermission(FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
 
+  console.log("DEBUG HEADER:", {
+    isAuthenticated,
+    isApproved,
+    isProfileIncomplete,
+    hasOwnLabRef,
+    hasInterLabRef,
+    permissionsCount: useAuth().permissions.length,
+    userRole: user?.role
+  });
+
   const navLinks = (!isAuthenticated || !isApproved || isProfileIncomplete) ? [] : [
     ...(hasOwnLabRef || hasInterLabRef ? [{
       path: hasOwnLabRef ? "/references/local" : "/references/global?scope=inter-lab",
@@ -245,6 +255,8 @@ function Header() {
   const isActivePath = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
+
+  console.log("NAVLINKS COMPUTED:", navLinks);
 
   return (
     <header className={`py-4 sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-white/20 dark:border-gray-800/20 transition-all duration-500 ease-in-out ${isAuthenticated && user && isApproved ? roleTheme.border : 'shadow-sm'}`}>
@@ -451,8 +463,22 @@ function Header() {
 
         {/* Mobile Menu Overlay */}
         {isMobileMenuOpen && (
-          <div className="fixed inset-0 z-50 bg-white dark:bg-gray-900 lg:hidden overflow-y-auto animate-in slide-in-from-right duration-300">
-            <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800">
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: '#ffffff',
+              zIndex: 99999,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            className="dark:bg-gray-900" // Keep dark mode class for dark theme support if inline bg overridden
+          >
+            <div className="p-4 flex justify-between items-center border-b border-gray-100 dark:border-gray-800 shrink-0 bg-white dark:bg-gray-900">
               <span className="font-bold text-lg text-gray-900 dark:text-white">Menu</span>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -488,6 +514,12 @@ function Header() {
               <div className="flex flex-col gap-2">
                 {isPermissionsLoading && (
                   <div className="px-4 py-2 text-xs text-indigo-500 font-bold animate-pulse">Syncing menu...</div>
+                )}
+                {/* Fallback for empty menu */}
+                {(!navLinks || navLinks.length === 0) && (
+                  <div className="px-4 py-8 text-center text-gray-400 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    No menu items available.
+                  </div>
                 )}
                 {navLinks.map((link: any) => {
                   const isActive = isActivePath(link.path);
