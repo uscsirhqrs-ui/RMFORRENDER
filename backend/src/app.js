@@ -191,7 +191,34 @@ app.get(/.*/, (req, res) => {
     res.sendFile(indexPath);
   } else {
     console.error(`[SPA-ROUTE] ERROR: index.html not found at ${indexPath}`);
-    res.status(404).send(`Not Found (SPA Error): index.html missing at ${indexPath}`);
+
+    // Diagnostic info for 404
+    let publicDirListing = "Failed to read";
+    try {
+      publicDirListing = JSON.stringify(fs.readdirSync(path.join(__dirname, "../public")));
+    } catch (e) {
+      publicDirListing = e.message;
+    }
+
+    let rootDirListing = "Failed to read";
+    try {
+      rootDirListing = JSON.stringify(fs.readdirSync(path.join(__dirname, "../")));
+    } catch (e) {
+      rootDirListing = e.message;
+    }
+
+    res.status(404).send(`
+      <h1>404 - SPA Entry Point Not Found</h1>
+      <p>Could not find <code>index.html</code> at: <code>${indexPath}</code></p>
+      <hr>
+      <h3>Diagnostics:</h3>
+      <ul>
+        <li><strong>__dirname:</strong> ${__dirname}</li>
+        <li><strong>process.cwd():</strong> ${process.cwd()}</li>
+        <li><strong>Public Dir Contents:</strong> ${publicDirListing}</li>
+        <li><strong>Root Dir Contents:</strong> ${rootDirListing}</li>
+      </ul>
+    `);
   }
 });
 
