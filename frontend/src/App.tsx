@@ -49,7 +49,7 @@ function App() {
   return (
     <SettingsProvider>
       <MessageBoxProvider>
-        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-300 w-full overflow-x-hidden relative">
           <Header />
           <main id="maincontent" className="w-full grow" >
             {/* Main content goes here and routers etc*/}

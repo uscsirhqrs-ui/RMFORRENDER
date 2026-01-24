@@ -91,6 +91,13 @@
   body {
     @apply font-sans antialiased text-gray-700 bg-slate-50/50 leading-relaxed dark:bg-gray-900 dark:text-gray-300;
     font-weight: var(--font-weight-regular);
+    overflow-x: hidden;
+    max-width: 100%;
+  }
+
+  html {
+    overflow-x: hidden;
+    max-width: 100%;
   }
 
   /* Dark mode global overrides for standard Tailwind background classes */

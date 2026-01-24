@@ -126,12 +126,14 @@ export default function HomePage() {
     }
 
     return (
-        <div className="flex flex-col bg-slate-50 min-h-screen relative overflow-hidden text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
+        <div className="flex flex-col bg-slate-50 min-h-screen w-full max-w-full relative overflow-x-hidden text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
 
             {/* Ambient Background Glows */}
-            <div className="absolute top-0 left-0 w-full h-[500px] bg-linear-to-b from-indigo-50/80 to-transparent pointer-events-none blur-3xl opacity-60" />
-            <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-[100px] pointer-events-none mix-blend-multiply" />
-            <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-100/50 blur-[100px] pointer-events-none mix-blend-multiply" />
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-0 left-0 w-full h-[500px] bg-linear-to-b from-indigo-50/80 to-transparent blur-3xl opacity-60" />
+                <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-purple-100/50 blur-[100px] mix-blend-multiply" />
+                <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-100/50 blur-[100px] mix-blend-multiply" />
+            </div>
 
             {/* Floating Labs Effect */}
             {/* <FloatingLabs /> */}
@@ -145,7 +147,7 @@ export default function HomePage() {
                         <span>Next-Gen Reference Management</span>
                     </div>
 
-                    <h1 className="font-heading text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter mb-8 leading-[1.1] animate-in fade-in duration-1000 fill-mode-both text-slate-900">
+                    <h1 className="font-heading text-4xl sm:text-7xl lg:text-8xl font-black tracking-tighter mb-8 leading-[1.1] animate-in fade-in duration-1000 fill-mode-both text-slate-900">
                         <span className="animate-modern-shine bg-clip-text text-transparent bg-linear-to-br from-slate-900 via-slate-800 to-slate-600 inline-block animate-slide-in-left">
                             Intelligent Data.
                         </span>
