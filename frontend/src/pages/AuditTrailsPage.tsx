@@ -24,6 +24,7 @@ import {
 import { getAuditLogs, getAuditSettings, toggleAuditLogging } from '../services/audit.api';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
+import DropDownWithSearch from '../components/ui/DropDownWithSearch';
 import ColumnVisibilityDropdown from '../components/ui/ColumnVisibilityDropdown';
 
 const AuditTrailsPage: React.FC = () => {
@@ -163,28 +164,40 @@ const AuditTrailsPage: React.FC = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     </div>
 
-                    <select
-                        name="action"
-                        className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm font-heading"
-                        onChange={handleFilterChange}
-                    >
-                        <option value="">All Actions</option>
-                        <option value="USER_LOGIN">User Login</option>
-                        <option value="USER_LOGOUT">User Logout</option>
-                        <option value="REFERENCE_CREATE">Reference Created</option>
-                        <option value="REFERENCE_UPDATE">Reference Updated</option>
-                        <option value="REFERENCE_DELETE">Reference Deleted</option>
-                    </select>
+                    <div className="w-full">
+                        <DropDownWithSearch
+                            placeholder="All Actions"
+                            options={[
+                                { label: 'All Actions', value: '' },
+                                { label: 'User Login', value: 'USER_LOGIN' },
+                                { label: 'User Logout', value: 'USER_LOGOUT' },
+                                { label: 'Reference Created', value: 'REFERENCE_CREATE' },
+                                { label: 'Reference Updated', value: 'REFERENCE_UPDATE' },
+                                { label: 'Reference Deleted', value: 'REFERENCE_DELETE' }
+                            ]}
+                            selectedValue={filters.action}
+                            onChange={(value) => {
+                                setFilters(prev => ({ ...prev, action: value }));
+                                setPage(1);
+                            }}
+                        />
+                    </div>
 
-                    <select
-                        name="resource"
-                        className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none dark:bg-gray-900 dark:border-gray-600 dark:text-white text-sm font-heading"
-                        onChange={handleFilterChange}
-                    >
-                        <option value="">All Resources</option>
-                        <option value="Reference">References</option>
-                        <option value="User">Users</option>
-                    </select>
+                    <div className="w-full">
+                        <DropDownWithSearch
+                            placeholder="All Resources"
+                            options={[
+                                { label: 'All Resources', value: '' },
+                                { label: 'References', value: 'Reference' },
+                                { label: 'Users', value: 'User' }
+                            ]}
+                            selectedValue={filters.resource}
+                            onChange={(value) => {
+                                setFilters(prev => ({ ...prev, resource: value }));
+                                setPage(1);
+                            }}
+                        />
+                    </div>
 
                     <div className="relative">
                         <button

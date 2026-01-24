@@ -30,6 +30,7 @@ import type { Reference } from '../../types/Reference.type';
 import Table from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
 import DropdownWithCheckboxes from '../../components/ui/DropDownWithCheckBoxes';
+import DropDownWithSearch from '../../components/ui/DropDownWithSearch';
 import ColumnVisibilityDropdown from '../../components/ui/ColumnVisibilityDropdown';
 import { useAuth } from '../../context/AuthContext';
 import { FeatureCodes } from '../../constants';
@@ -276,25 +277,27 @@ const ManageGlobalReferencesPage = () => {
                         onChange={setPriorityFilter}
                     />
 
-                    <select
-                        value={visibilityFilter}
-                        onChange={(e) => setVisibilityFilter(e.target.value as any)}
-                        className="h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    >
-                        <option value="all">All Visibility</option>
-                        <option value="visible">Visible Only</option>
-                        <option value="hidden">Hidden Only</option>
-                    </select>
+                    <DropDownWithSearch
+                        placeholder="Select Visibility"
+                        options={[
+                            { label: 'All Visibility', value: 'all' },
+                            { label: 'Visible Only', value: 'visible' },
+                            { label: 'Hidden Only', value: 'hidden' }
+                        ]}
+                        selectedValue={visibilityFilter}
+                        onChange={(val) => setVisibilityFilter(val as any)}
+                    />
 
-                    <select
-                        value={archivalFilter}
-                        onChange={(e) => setArchivalFilter(e.target.value as any)}
-                        className="h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-heading"
-                    >
-                        <option value="all">All Archival</option>
-                        <option value="active">Active Only</option>
-                        <option value="archived">Archived Only</option>
-                    </select>
+                    <DropDownWithSearch
+                        placeholder="Select Archival Status"
+                        options={[
+                            { label: 'All Archival', value: 'all' },
+                            { label: 'Active Only', value: 'active' },
+                            { label: 'Archived Only', value: 'archived' }
+                        ]}
+                        selectedValue={archivalFilter}
+                        onChange={(val) => setArchivalFilter(val as any)}
+                    />
 
                     <div className="lg:col-start-8 flex justify-end">
                         <ColumnVisibilityDropdown
