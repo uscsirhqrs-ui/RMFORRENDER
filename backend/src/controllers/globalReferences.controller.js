@@ -74,15 +74,16 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
    */
   const userLab = req.user.labName;
   const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+  const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
   const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
+  const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
   /* 
    * NEW PERMISSION-BASED VISIBILITY LOGIC
-   * managers (global or local) see all in their scope.
+   * visibility is strictly feature-permission based.
    */
-  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin;
-  const canSeeAllLocalOwn = hasLocalAdmin;
+  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+  const canSeeAllLocalOwn = canManageOwnLab;
 
   let ownershipCriteria = {};
 
@@ -119,13 +120,15 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
     if (isHidden !== undefined) {
       filterCriteria.isHidden = isHidden === 'true';
     } else {
-      // Default Global Admin view (usually active, but they can see all if they want)
-      // However, to keep standard lists clean, we can default to non-hidden if not specified
-      // but "Manage" pages will send isHidden=true/false explicitly.
+      // Default: Hide hidden global references
+      filterCriteria.isHidden = { $ne: true };
     }
 
     if (isArchived !== undefined) {
       filterCriteria.isArchived = isArchived === 'true';
+    } else {
+      // Default: Hide archived global references
+      filterCriteria.isArchived = { $ne: true };
     }
   } else {
     // Normal users or Local Admins (in Global list) can't see hidden/archived global refs
@@ -220,7 +223,6 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
     finalMatch.$and = andConditions;
   }
 
-  console.log(`[DEBUG_GET_REFS] finalMatch:`, JSON.stringify(finalMatch, null, 2));
 
   const total = await GlobalReference.countDocuments(finalMatch);
   const pipeline = getReferencesWithDetailsPipeline(finalMatch);
@@ -276,11 +278,9 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     baseCriteria = { participants: userId };
   }
 
-  // Enforce visibility for non-admins
-  if (!isAdmin) {
-    baseCriteria.isHidden = { $ne: true };
-    baseCriteria.isArchived = { $ne: true };
-  }
+  // Always exclude hidden and archived from dashboard counts unless explicitly requested
+  baseCriteria.isHidden = { $ne: true };
+  baseCriteria.isArchived = { $ne: true };
 
   // Scope Filter (Lab level vs Inter-lab)
   if (scope === 'lab') {
@@ -327,14 +327,19 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
   const { scope } = req.query;
   const userId = new mongoose.Types.ObjectId(req.user._id);
   const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+  const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
   const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-  const isAdmin = hasGlobalAdmin || hasGlobalRefAdmin;
+  const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
-  console.log(`[DEBUG_GET_REFS] User: ${req.user.email}, Role: ${req.user.role}, isAdmin: ${isAdmin}`);
+  // Admin or user with global view permission can see all global filters
+  const canSeeAllGlobalFilters = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+  // Local admin (Manage own lab) or View own lab permission can see all local filters
+  const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
+  const canSeeAllLocalFilters = canManageOwnLab || hasLocalView;
 
-  console.error(`[DEBUG_FILTERS] scope: '${scope}', User: ${req.user.email} (${req.user._id}), Lab: '${req.user.labName}'`);
-  console.error(`[DEBUG_FILTERS] Permissions - hasGlobalRefAdmin: ${hasGlobalRefAdmin}, isLocalAdmin: ${hasLocalAdmin}, isAdmin: ${isAdmin}`);
+  // We'll branch later, but for the "isAdmin" block (which uses facet search), let's use canSeeAllGlobalFilters
+  const useFacetSearch = canSeeAllGlobalFilters || hasGlobalAdmin; // Superadmins always use facet
+
   // Widening the "Normal User" query is safer.
 
   // Let's set isAdmin = isGlobalAdmin ONLY. 
@@ -398,7 +403,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     };
   };
 
-  if (isAdmin) {
+  if (canSeeAllGlobalFilters) {
     // ADMIN LOGIC: Use Aggregation to show only values PRESENT in the data
     const createdByMap = new Map();
     const markedToMap = new Map();
@@ -514,8 +519,8 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     if (!scope || scope === 'inter-lab') {
       let match = { participants: userId };
 
-      if (isLocalAdmin) {
-        // Widen scope for Local Admin
+      if (canSeeAllLocalFilters) {
+        // Widen scope if they have lab view/manage permission
         match = {
           $or: [
             { participants: userId },
@@ -539,7 +544,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     if (!scope || scope === 'lab') {
       let match = { participants: userId };
 
-      if (isLocalAdmin) {
+      if (canSeeAllLocalFilters) {
         match = {
           $or: [
             { participants: userId },
@@ -767,13 +772,15 @@ export const createReference = asyncHandler(async (req, res, next) => {
     createdByDetails: {
       fullName: req.user.fullName,
       email: req.user.email,
-      labName: req.user.labName
+      labName: req.user.labName,
+      designation: req.user.designation
     },
     markedToDetails: [{
       _id: markedToUser._id,
       fullName: markedToUser.fullName,
       email: markedToUser.email,
-      labName: markedToUser.labName
+      labName: markedToUser.labName,
+      designation: markedToUser.designation
     }],
     isInterLab: req.user.labName !== markedToUser.labName
   });

@@ -32,6 +32,8 @@ import AddLocalReferenceModal from "../../components/ui/AddLocalReferenceModal";
 import UserProfileViewModal from "../../components/ui/UserProfileViewModal";
 import ColumnVisibilityDropdown from "../../components/ui/ColumnVisibilityDropdown";
 import DropdownWithCheckboxes from "../../components/ui/DropDownWithCheckBoxes";
+import { MobileCardList } from "../../components/ui/MobileCardList";
+import { ReferenceMobileCard } from "../../components/ui/ReferenceMobileCard";
 import { useAuth } from "../../context/AuthContext";
 import BulkUpdateLocalReferenceModal from "../../components/ui/BulkUpdateLocalReferenceModal";
 import ExportButton from "../../components/ui/ExportButton";
@@ -595,7 +597,7 @@ function LocalReferencesPage() {
                 </div>
             )}
 
-            <div className={`transition-all duration-300 ${loading ? 'opacity-40 grayscale-[0.5] pointer-events-none' : 'opacity-100'}`}>
+            <div className={`hidden md:block transition-all duration-300 ${loading ? 'opacity-40 grayscale-[0.5] pointer-events-none' : 'opacity-100'}`}>
                 {references.length === 0 && !loading ? (
                     <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
                         <p className="text-gray-400 font-medium font-heading">No references found matching your filters.</p>
@@ -775,6 +777,54 @@ function LocalReferencesPage() {
                     />
                 )}
             </div>
+
+            {/* Mobile View */}
+            <MobileCardList
+                data={references}
+                keyExtractor={(row) => row._id}
+                emptyMessage="No references found matching your filters."
+                renderItem={(row) => {
+                    const markedToDetails = (row as any).markedToDetails;
+                    const markedToEmails = Array.isArray(markedToDetails)
+                        ? markedToDetails.map((d: any) => d.email)
+                        : [markedToDetails?.email || (typeof row.markedTo === 'object' ? (row.markedTo as any)?.email : '')];
+
+                    const isMarkedToMe = user?.email &&
+                        row.status !== 'Closed' &&
+                        markedToEmails.includes(user.email);
+
+                    const detailsArr = Array.isArray((row as any).markedToDetails)
+                        ? (row as any).markedToDetails as any[]
+                        : [(row as any).markedToDetails].filter(Boolean);
+
+                    return (
+                        <ReferenceMobileCard
+                            data={row}
+                            isSelected={selectedIds.has(row._id)}
+                            onToggleSelect={() => isMarkedToMe && handleSelectRow(row._id)}
+                            disableSelection={!isMarkedToMe}
+                            linkBaseUrl="/references/local"
+                            statusRenderer={getStatusStyles}
+                            additionalInfo={
+                                <>
+                                    {detailsArr.length > 0 && (
+                                        <div className="flex gap-1">
+                                            <span className="font-semibold text-gray-500">To:</span>
+                                            <span className="truncate">{detailsArr[0].fullName}{detailsArr.length > 1 ? ` +${detailsArr.length - 1}` : ''}</span>
+                                        </div>
+                                    )}
+                                    {row.createdByDetails && (
+                                        <div className="flex gap-1">
+                                            <span className="font-semibold text-gray-500">By:</span>
+                                            <span className="truncate">{row.createdByDetails.fullName}</span>
+                                        </div>
+                                    )}
+                                </>
+                            }
+                        />
+                    );
+                }}
+            />
 
             {/* Pagination */}
             {references.length > 0 && (

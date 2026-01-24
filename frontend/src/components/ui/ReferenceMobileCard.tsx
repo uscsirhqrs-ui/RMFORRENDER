@@ -20,6 +20,8 @@ interface ReferenceMobileCardProps {
     linkBaseUrl: string; // e.g. '/references/local' or '/references/global'
     showLabName?: boolean;
     statusRenderer: (status: string) => string; // Function to get Tailwind classes
+    disableSelection?: boolean;
+    additionalInfo?: React.ReactNode;
 }
 
 export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
@@ -28,7 +30,9 @@ export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
     onToggleSelect,
     linkBaseUrl,
     showLabName = false,
-    statusRenderer
+    statusRenderer,
+    disableSelection = false,
+    additionalInfo
 }) => {
     return (
         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-3">
@@ -38,7 +42,8 @@ export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
                         type="checkbox"
                         checked={isSelected}
                         onChange={onToggleSelect}
-                        className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        disabled={disableSelection}
+                        className={`w-5 h-5 rounded border-gray-300 ${disableSelection ? 'opacity-30 cursor-not-allowed bg-gray-100' : 'text-indigo-600 focus:ring-indigo-500'}`}
                     />
                     <div>
                         <Link to={`${linkBaseUrl}/${row._id}`} className="text-indigo-600 font-bold text-sm hover:underline font-heading block">
@@ -66,6 +71,11 @@ export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
                         <span className="text-xs font-bold text-gray-500 uppercase font-heading">| {row.labName}</span>
                     )}
                 </div>
+                {additionalInfo && (
+                    <div className="mt-2 text-xs text-gray-600 space-y-1 pt-2 border-t border-gray-50 border-dashed">
+                        {additionalInfo}
+                    </div>
+                )}
             </div>
 
             {(row.isHidden || row.isArchived) && (

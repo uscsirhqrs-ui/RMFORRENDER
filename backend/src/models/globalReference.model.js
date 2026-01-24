@@ -99,11 +99,13 @@ const GlobalReferenceSchema = new Schema(
       fullName: String,
       email: String,
       labName: String,
+      designation: String,
     },
     markedToDetails: [{
       fullName: String,
       email: String,
       labName: String,
+      designation: String,
     }],
     isInterLab: {
       type: Boolean,

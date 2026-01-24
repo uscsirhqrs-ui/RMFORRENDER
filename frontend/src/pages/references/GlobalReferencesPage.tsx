@@ -32,6 +32,8 @@ import Table from "../../components/ui/Table";
 import { removeColumnsFromJsonArray } from "../../utils/Helperfunctions";
 import AddGlobalReferenceModal from "../../components/ui/AddGlobalReferenceModal";
 import ColumnVisibilityDropdown from "../../components/ui/ColumnVisibilityDropdown";
+import { MobileCardList } from "../../components/ui/MobileCardList";
+import { ReferenceMobileCard } from "../../components/ui/ReferenceMobileCard";
 import { useAuth } from "../../context/AuthContext";
 import { FeatureCodes } from "../../constants";
 import UserProfileViewModal from "../../components/ui/UserProfileViewModal";
@@ -96,7 +98,7 @@ function GlobalReferencesPage() {
     const [pendingDaysFilter, setPendingDaysFilter] = useState<number | "">("");
 
     // Scope is generic for Global References (includes both Inter-lab and same-lab if created as Global)
-    const scopeFilter = ''; // Was 'inter-lab'
+    const scopeFilter = 'inter-lab';
 
     // Pagination & Sorting State
     const [currentPage, setCurrentPage] = useState(1);
@@ -108,36 +110,36 @@ function GlobalReferencesPage() {
     // Active Dashboard Card State
     const [activeCard, setActiveCard] = useState<'open' | 'high' | 'pending' | 'closed' | 'markedToMe' | 'pendingDivision' | null>(null);
 
-    const statusOptions: CheckBoxOption[] = useMemo(() => availableStatuses.map(s => ({
+    const statusOptions: CheckBoxOption[] = availableStatuses.map(s => ({
         label: s,
         value: s
-    })), [availableStatuses]);
+    }));
 
-    const priorityOptions: CheckBoxOption[] = useMemo(() => availablePriorities.map(p => ({
+    const priorityOptions: CheckBoxOption[] = availablePriorities.map(p => ({
         label: p,
         value: p
-    })), [availablePriorities]);
+    }));
 
-    const markedToOptions: CheckBoxOption[] = useMemo(() => availableMarkedToUsers.map(u => ({
+    const markedToOptions: CheckBoxOption[] = availableMarkedToUsers.map(u => ({
         label: `${u.fullName}${u.designation ? `, ${u.designation}` : ""} (${u.labName || 'N/A'})`,
         value: u.email,
         title: `${u.fullName}${u.designation ? ` | ${u.designation}` : ""} | ${u.labName || 'N/A'} (${u.email})`
-    })), [availableMarkedToUsers]);
+    }));
 
-    const createdByOptions: CheckBoxOption[] = useMemo(() => availableCreatedByUsers.map(u => ({
+    const createdByOptions: CheckBoxOption[] = availableCreatedByUsers.map(u => ({
         label: `${u.fullName}${u.designation ? `, ${u.designation}` : ""} (${u.labName || 'N/A'})`,
         value: u.email,
         title: `${u.fullName}${u.designation ? ` | ${u.designation}` : ""} | ${u.labName || 'N/A'} (${u.email})`
-    })), [availableCreatedByUsers]);
+    }));
 
-    const divisionOptions: CheckBoxOption[] = useMemo(() => availableDivisions.map(div => ({
+    const divisionOptions: CheckBoxOption[] = availableDivisions.map(div => ({
         label: div,
         value: div
-    })), [availableDivisions]);
+    }));
 
     const fetchFilters = async () => {
         try {
-            const res = await getReferenceFilters(''); // Was 'inter-lab'
+            const res = await getReferenceFilters('inter-lab');
             if (res.success && res.data) {
                 if (res.data.createdByUsers) setAvailableCreatedByUsers(res.data.createdByUsers);
                 if (res.data.markedToUsers) setAvailableMarkedToUsers(res.data.markedToUsers);
@@ -488,8 +490,10 @@ function GlobalReferencesPage() {
 
                 <div className="-mt-4 pb-2">
                     <p className="text-gray-500 text-xs font-heading">
-                        <>Send references to any <span className="text-indigo-600 font-bold">CSIR lab/unit.</span> The <span className="text-indigo-600 font-bold">Inter lab sender</span> role is required for sending/receiving global references.</>
-                        {totalReferences > 0 && <span className="ml-2 text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-tighter">Total: {totalReferences}</span>}
+                        Send references to any <span className="text-indigo-600 font-bold">CSIR lab/unit.</span> The <span className="text-indigo-600 font-bold">Inter lab sender</span> role is required for sending/receiving global references.
+                        {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase tracking-widest font-bold shadow-sm">
+                            Total: {totalReferences} of {stats.totalReferences}
+                        </span>}
                     </p>
                 </div>
 
@@ -651,7 +655,7 @@ function GlobalReferencesPage() {
 
                 {/* Table Area */}
                 <div className="relative">
-                    <div className={`transition-all duration-300 ${loading ? 'opacity-40 grayscale-[0.5] pointer-events-none' : 'opacity-100'}`}>
+                    <div className={`hidden md:block transition-all duration-300 ${loading ? 'opacity-40 grayscale-[0.5] pointer-events-none' : 'opacity-100'}`}>
                         {references.length === 0 && !loading ? (
                             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
                                 <p className="text-gray-400 font-medium font-heading">No references found matching your filters.</p>
@@ -923,6 +927,61 @@ function GlobalReferencesPage() {
                         )}
                     </div>
                 </div>
+
+                {/* Mobile View */}
+                <MobileCardList
+                    data={references}
+                    keyExtractor={(row) => row._id}
+                    emptyMessage="No references found matching your filters."
+                    renderItem={(row) => {
+                        const markedToDetails = (row as any).markedToDetails;
+                        const markedToEmails = Array.isArray(markedToDetails)
+                            ? markedToDetails.map((d: any) => d.email)
+                            : [markedToDetails?.email || (typeof row.markedTo === 'object' ? (row.markedTo as any)?.email : '')];
+
+                        const isMarkedToMe = user?.email &&
+                            row.status !== 'Closed' &&
+                            markedToEmails.includes(user.email);
+
+                        const detailsArr = Array.isArray((row as any).markedToDetails)
+                            ? (row as any).markedToDetails as any[]
+                            : [(row as any).markedToDetails].filter(Boolean);
+
+                        return (
+                            <ReferenceMobileCard
+                                data={row}
+                                isSelected={selectedIds.has(row._id)}
+                                onToggleSelect={() => isMarkedToMe && handleSelectRow(row._id)}
+                                disableSelection={!isMarkedToMe}
+                                linkBaseUrl="/references/global"
+                                statusRenderer={getStatusStyles}
+                                additionalInfo={
+                                    <>
+                                        {detailsArr.length > 0 && (
+                                            <div className="flex gap-1 justify-between">
+                                                <div className="flex gap-1 overflow-hidden">
+                                                    <span className="font-semibold text-gray-500 whitespace-nowrap">To:</span>
+                                                    <span className="truncate">{detailsArr[0].fullName}{detailsArr.length > 1 ? ` +${detailsArr.length - 1}` : ''}</span>
+                                                </div>
+                                                {detailsArr[0].division && (
+                                                    <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 font-bold uppercase tracking-wider whitespace-nowrap">
+                                                        {detailsArr[0].division}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+                                        {row.createdByDetails && (
+                                            <div className="flex gap-1">
+                                                <span className="font-semibold text-gray-500">By:</span>
+                                                <span className="truncate">{row.createdByDetails.fullName}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                }
+                            />
+                        );
+                    }}
+                />
             </div >
 
             <AddGlobalReferenceModal

@@ -88,11 +88,13 @@ const LocalReferenceSchema = new Schema(
             fullName: String,
             email: String,
             labName: String,
+            designation: String,
         },
         markedToDetails: [{
             fullName: String,
             email: String,
             labName: String,
+            designation: String,
         }],
         labName: {
             type: String,

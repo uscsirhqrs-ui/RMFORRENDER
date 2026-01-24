@@ -45,14 +45,17 @@ export const getAllLocalReferences = asyncHandler(async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const userLab = req.user.labName;
     const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const isAdmin = hasGlobalAdmin || hasLocalAdmin;
+    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
+
+    // Visibility is feature-based: Admins or users with view permission see all lab references
+    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
 
     // Base criteria: MUST be in the user's lab UNLESS they are a Global Admin (Superadmin)
     let matchCriteria = hasGlobalAdmin ? {} : { labName: userLab };
 
-    // Ownership criteria: non-admins only see references they are part of
-    if (!isAdmin) {
+    // Ownership criteria: non-authorized users only see references they are part of
+    if (!canSeeAllLabRefs) {
         matchCriteria.participants = userId;
         matchCriteria.isHidden = { $ne: true };
         matchCriteria.isArchived = { $ne: true };
@@ -127,18 +130,18 @@ export const getAllLocalReferences = asyncHandler(async (req, res) => {
         }
     }
 
-    if (isAdmin) {
+    if (canSeeAllLabRefs) {
         if (isHidden !== undefined) {
             matchCriteria.isHidden = isHidden === 'true';
-        } else if (!hasGlobalAdmin) {
-            // Non-superadmins (e.g. Local Admin) should still see non-hidden by default if not explicitly requested
-            // Superadmins see all by default in their "Manage" view usually, but we follow the query param logic
+        } else {
+            // Default: Hide hidden items for everyone unless explicitly requested
             matchCriteria.isHidden = { $ne: true };
         }
 
         if (isArchived !== undefined) {
             matchCriteria.isArchived = isArchived === 'true';
-        } else if (!hasGlobalAdmin) {
+        } else {
+            // Default: Hide archived items for everyone unless explicitly requested
             matchCriteria.isArchived = { $ne: true };
         }
     }
@@ -208,13 +211,15 @@ export const createLocalReference = asyncHandler(async (req, res) => {
         createdByDetails: {
             fullName: req.user.fullName,
             email: req.user.email,
-            labName: req.user.labName
+            labName: req.user.labName,
+            designation: req.user.designation
         },
         markedToDetails: [{
             _id: markedToUser._id,
             fullName: markedToUser.fullName,
             email: markedToUser.email,
-            labName: markedToUser.labName
+            labName: markedToUser.labName,
+            designation: markedToUser.designation
         }]
     });
 
@@ -308,13 +313,17 @@ export const getLocalDashboardStats = asyncHandler(async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const userLab = req.user.labName;
     const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const isAdmin = hasGlobalAdmin || hasLocalAdmin;
+    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
+
+    // Visibility is feature-based
+    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
+    const isAdmin = hasGlobalAdmin || canManageOwnLab;
 
     let baseCriteria = hasGlobalAdmin ? {} : { labName: userLab };
 
-    // Enforce visibility for non-admins
-    if (!isAdmin) {
+    // Enforce visibility for non-authorized users
+    if (!canSeeAllLabRefs) {
         baseCriteria.participants = userId;
     }
 
@@ -671,7 +680,8 @@ export const updateLocalReference = asyncHandler(async (req, res) => {
         _id: u._id,
         fullName: u.fullName,
         email: u.email,
-        labName: u.labName
+        labName: u.labName,
+        designation: u.designation
     }));
 
     nextUsers.forEach(u => {
@@ -786,21 +796,20 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
     const userLab = req.user.labName;
 
     // Use role-inclusive helper to check admin status
-    const isGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const isLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const isAdmin = isGlobalAdmin || isLocalAdmin;
+    const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
 
-    console.log(`[LOCAL_FILTERS] User: ${req.user.email}, Lab: ${userLab}, isAdmin: ${isAdmin}`);
+    const canSeeAllFilters = hasGlobalAdmin || canManageOwnLab || hasLocalView;
+
+    console.log(`[LOCAL_FILTERS] User: ${req.user.email}, Lab: ${userLab}, canSeeAllFilters: ${canSeeAllFilters}`);
 
     // Base match criteria
     let matchCriteria = {};
 
-    if (isAdmin) {
-        // Admins see all references for their lab (or all labs if Global Admin, but this is the Local controller)
-        // Ideally, Local controller should be scoped to the user's lab even for Global Admins 
-        // to keep it "Local", but Global Admins might want to see specific lab data.
-        // For consistency with getAllLocalReferences:
-        matchCriteria = isGlobalAdmin ? {} : { labName: userLab };
+    if (canSeeAllFilters) {
+        // Authorized users see all references for their lab (or all labs if Global Admin)
+        matchCriteria = hasGlobalAdmin ? {} : { labName: userLab };
     } else {
         // Normal users only see references they participate in
         matchCriteria = {
