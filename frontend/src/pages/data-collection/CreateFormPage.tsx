@@ -709,44 +709,50 @@ export default function CreateFormPage() {
                 ) : (
                     <Card className={`shadow-xl border-none overflow-hidden transition-all duration-500 bg-white ${isRefining ? 'ring-2 ring-indigo-500' : ''}`}>
                         <CardHeader className={`${isRefining ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'} p-8 transition-colors`}>
-                            <div className="flex items-center gap-6">
-                                <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                                <div className="hidden md:flex w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md items-center justify-center border border-white/20 shrink-0">
                                     <FileText className="w-8 h-8" />
                                 </div>
-                                <div className="flex-1">
+                                <div className="flex-1 w-full">
                                     {isRefining ? (
-                                        <div className="space-y-2">
+                                        <div className="space-y-4 md:space-y-2">
+                                            <div className="flex items-center gap-4 md:hidden mb-2">
+                                                <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
+                                                    <FileText className="w-6 h-6" />
+                                                </div>
+                                                <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Editing Template</span>
+                                            </div>
                                             <input
                                                 ref={titleInputRef}
                                                 type="text"
                                                 value={templateName}
                                                 onChange={(e) => setTemplateName(e.target.value)}
-                                                className="bg-transparent border-b-2 border-white/30 text-3xl font-bold font-headline tracking-tight text-white focus:outline-none focus:border-white w-full"
+                                                className="bg-transparent border-b-2 border-white/30 text-2xl md:text-3xl font-bold font-headline tracking-tight text-white focus:outline-none focus:border-white w-full py-1"
                                                 placeholder="Enter Form Title..."
                                             />
                                             <input
                                                 type="text"
                                                 value={templateDescription}
                                                 onChange={(e) => setTemplateDescription(e.target.value)}
-                                                className="bg-transparent border-b border-white/10 text-indigo-100 text-sm focus:outline-none focus:border-white/30 w-full"
+                                                className="bg-transparent border-b border-white/10 text-indigo-100 text-sm focus:outline-none focus:border-white/30 w-full py-1"
                                                 placeholder="Add a brief description..."
                                             />
                                         </div>
                                     ) : (
                                         <>
-                                            <h2 className="text-3xl font-bold font-headline tracking-tight text-white">{templateName}</h2>
+                                            <h2 className="text-2xl md:text-3xl font-bold font-headline tracking-tight text-white">{templateName}</h2>
                                             <p className="text-indigo-100/70 text-sm mt-1">{templateDescription}</p>
                                         </>
                                     )}
                                 </div>
                                 {isRefining && (
-                                    <div className="flex flex-col gap-1 w-48">
+                                    <div className="flex flex-col gap-1 w-full md:w-48 mt-4 md:mt-0">
                                         <label className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest ml-1">Deadline (Optional)</label>
                                         <input
                                             type="date"
                                             value={sharingDeadline}
                                             onChange={(e) => setSharingDeadline(e.target.value)}
-                                            className="bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-white/40 transition-all backdrop-blur-sm"
+                                            className="bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-white/40 transition-all backdrop-blur-sm w-full"
                                             min={new Date().toISOString().split('T')[0]}
                                         />
                                     </div>
