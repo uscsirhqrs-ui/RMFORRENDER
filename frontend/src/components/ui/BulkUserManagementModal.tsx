@@ -139,39 +139,39 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
         .sort();
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden animate-scale-in border border-white/20">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in p-4 sm:p-0">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-scale-in border border-white/20 flex flex-col max-h-[90vh]">
                 {/* Header */}
-                <div className="px-8 py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                <div className="px-4 py-4 sm:px-8 sm:py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
                     <div>
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                            <ShieldCheck className="w-6 h-6 text-indigo-600" />
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                            <ShieldCheck className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
                             Manage Selected Users
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                             Processing user <span className="font-bold text-indigo-600 font-heading">{currentIndex + 1}</span> of <span className="font-bold text-gray-700 dark:text-gray-300 font-heading">{selectedUsers.length}</span>
                         </p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-2.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-all text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:rotate-90"
+                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-all text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:rotate-90"
                     >
-                        <X className="w-6 h-6" />
+                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
                     </button>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700">
+                <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-700 shrink-0">
                     <div
                         className="h-full bg-indigo-600 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(79,70,229,0.5)]"
                         style={{ width: `${((currentIndex + 1) / selectedUsers.length) * 100}%` }}
                     />
                 </div>
 
-                <div className="p-8">
+                <div className="p-4 sm:p-8 overflow-y-auto flex-1">
                     {/* User Info Card */}
-                    <div className="bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl p-6 border border-indigo-100/50 dark:border-indigo-800/30 mb-8 flex items-center gap-6">
-                        <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none font-heading relative overflow-hidden group">
+                    <div className="bg-indigo-50/50 dark:bg-indigo-900/20 rounded-2xl p-4 sm:p-6 border border-indigo-100/50 dark:border-indigo-800/30 mb-6 sm:mb-8 flex items-center gap-4 sm:gap-6">
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none font-heading relative overflow-hidden group shrink-0">
                             {currentUser.avatar ? (
                                 <img src={currentUser.avatar} alt={currentUser.fullName} className="w-full h-full object-cover" />
                             ) : (
@@ -180,19 +180,19 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                             <div className="absolute inset-0 bg-linear-to-tr from-indigo-600/20 to-transparent" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <h4 className="text-2xl font-bold text-gray-900 dark:text-white truncate">
+                            <h4 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
                                 {currentUser.fullName || currentUser.email?.split('@')[0]}
                             </h4>
-                            <p className="text-gray-500 dark:text-gray-400 font-medium truncate">{currentUser.email}</p>
-                            <div className="flex flex-wrap gap-2 mt-3">
-                                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-xs ${currentUser.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            <p className="text-gray-500 dark:text-gray-400 font-medium truncate text-sm sm:text-base">{currentUser.email}</p>
+                            <div className="flex flex-wrap gap-2 mt-2 sm:mt-3">
+                                <span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-xs ${currentUser.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                     currentUser.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :
                                         'bg-amber-50 text-amber-600 border-amber-100'
                                     }`}>
                                     {currentUser.status}
                                 </span>
                                 {currentUser.isActivated && (
-                                    <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100 shadow-xs">
+                                    <span className="px-2 sm:px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-100 shadow-xs">
                                         Activated
                                     </span>
                                 )}
@@ -210,7 +210,7 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                         {/* Status & Activation */}
                         <div className="space-y-6">
                             <div>
@@ -271,7 +271,7 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                                     <div
                                         key={role}
                                         onClick={() => toggleRole(role)}
-                                        className={`group flex items-center justify-between p-4 rounded-2xl border-2 cursor-pointer transition-all ${availableRoles.includes(role)
+                                        className={`group flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 cursor-pointer transition-all ${availableRoles.includes(role)
                                             ? 'bg-indigo-50 border-indigo-500 dark:bg-indigo-900/30'
                                             : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700 hover:border-indigo-200'
                                             }`}
@@ -305,7 +305,7 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                 </div>
 
                 {/* Footer Controls */}
-                <div className="px-8 py-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center shrink-0">
+                <div className="px-4 py-4 sm:px-8 sm:py-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center shrink-0">
                     <div className="flex gap-2">
                         <Button
                             variant="secondary"
