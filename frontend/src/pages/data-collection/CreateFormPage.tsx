@@ -913,9 +913,9 @@ export default function CreateFormPage() {
             {isSharingModalOpen && (
 
                 <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-110 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <Card className="w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl border-none animate-in zoom-in-95 duration-300 overflow-hidden">
-                        <CardHeader className="bg-indigo-600 text-white p-6 shrink-0">
-                            <div className="flex items-center justify-between">
+                    <Card className="h-[95vh] w-[95vw] md:w-full md:max-w-6xl md:h-auto md:max-h-[90vh] flex flex-col shadow-2xl border-none animate-in zoom-in-95 duration-300 overflow-hidden">
+                        <CardHeader className="bg-indigo-600 text-white p-4 md:p-6 shrink-0">
+                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                                         <Share2 className="w-6 h-6" />
@@ -924,21 +924,21 @@ export default function CreateFormPage() {
                                         <CardTitle className="text-xl font-bold font-headline tracking-normal">
                                             {sharingMode === 'COPY' ? 'Share Template Copy' : 'Distribute Form'}
                                         </CardTitle>
-                                        <CardDescription className="text-indigo-100 text-xs">
+                                        <CardDescription className="text-indigo-100 text-xs hidden md:block">
                                             {sharingMode === 'COPY'
                                                 ? 'Select users to send them an independent copy of this template.'
                                                 : 'Filter by Lab and Designation to target specific users for data collection.'}
                                         </CardDescription>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-4 w-full md:w-auto justify-between">
+                                    <div className="flex flex-col gap-1 w-full md:w-auto">
                                         <label className="text-[10px] font-bold text-white/60 uppercase tracking-widest ml-1">Optional Deadline</label>
                                         <input
                                             type="date"
                                             value={sharingDeadline}
                                             onChange={(e) => setSharingDeadline(e.target.value)}
-                                            className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-white/40 transition-colors"
+                                            className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-white/40 transition-colors w-full"
                                             min={new Date().toISOString().split('T')[0]}
                                         />
                                     </div>
@@ -947,7 +947,7 @@ export default function CreateFormPage() {
                                             setIsSharingModalOpen(false);
                                             setSharingDeadline('');
                                         }}
-                                        className="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors"
+                                        className="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors ml-2"
                                         aria-label="Close modal"
                                     >
                                         <X className="w-5 h-5" />
@@ -956,11 +956,11 @@ export default function CreateFormPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
-                            <div className="flex flex-1 divide-x divide-gray-100 overflow-hidden">
+                            <div className="flex flex-col md:flex-row flex-1 divide-y md:divide-y-0 md:divide-x divide-gray-100 overflow-y-auto md:overflow-hidden">
 
                                 {/* Column 1: Laboratories */}
-                                <div className="w-1/4 flex flex-col bg-white">
-                                    <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
+                                <div className="w-full md:w-1/4 flex flex-col bg-white shrink-0 h-[220px] md:h-auto">
+                                    <div className="p-3 md:p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
                                         <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">1. Laboratories</label>
                                         <button
                                             onClick={() => {
@@ -987,17 +987,17 @@ export default function CreateFormPage() {
                                                             prev.includes(lab.value) ? prev.filter(l => l !== lab.value) : [...prev, lab.value]
                                                         );
                                                     }}
-                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
                                                 />
-                                                <span className="text-xs font-bold leading-none font-sans uppercase">{lab.label}</span>
+                                                <span className="text-xs font-bold leading-none font-sans uppercase break-words">{lab.label}</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
 
                                 {/* Column 2: Designations */}
-                                <div className="w-1/4 flex flex-col bg-white">
-                                    <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
+                                <div className="w-full md:w-1/4 flex flex-col bg-white shrink-0 h-[220px] md:h-auto">
+                                    <div className="p-3 md:p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
                                         <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">2. Designations</label>
                                         <button
                                             onClick={() => {
@@ -1033,7 +1033,7 @@ export default function CreateFormPage() {
                                                                 prev.includes(desig) ? prev.filter(d => d !== desig) : [...prev, desig]
                                                             );
                                                         }}
-                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
                                                     />
                                                     <span className="text-xs font-bold leading-none truncate font-sans uppercase" title={desig}>{desig}</span>
                                                 </label>
@@ -1043,8 +1043,8 @@ export default function CreateFormPage() {
                                 </div>
 
                                 {/* Column 3: Users */}
-                                <div className="w-2/4 flex flex-col bg-gray-50/30">
-                                    <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                                <div className="w-full md:w-2/4 flex flex-col bg-gray-50/30 shrink-0 min-h-[300px] md:h-auto">
+                                    <div className="p-3 md:p-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between sticky top-0 md:static z-10">
                                         <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">
                                             3. Users (Filtered)
                                         </label>
@@ -1062,9 +1062,9 @@ export default function CreateFormPage() {
                                             Select / Deselect Visible
                                         </button>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3 custom-scrollbar content-start">
+                                    <div className="flex-1 overflow-y-auto p-3 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-3 custom-scrollbar content-start">
                                         {filteredUsers.length === 0 ? (
-                                            <div className="col-span-2 flex flex-col items-center justify-center pt-20 text-gray-400">
+                                            <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center pt-10 md:pt-20 text-gray-400">
                                                 <Share2 className="w-8 h-8 opacity-20 mb-2" />
                                                 <p className="text-xs italic text-center px-4 font-sans">
                                                     {selectedSharedLabs.length === 0 || selectedDesignations.length === 0
@@ -1099,12 +1099,12 @@ export default function CreateFormPage() {
                                 </div>
                             </div>
 
-                            <div className="p-6 border-t border-gray-100 flex items-center justify-between bg-white rounded-b-xl">
-                                <div className="space-y-4">
+                            <div className="p-4 md:p-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between bg-white rounded-b-xl gap-4 md:gap-0 shrink-0">
+                                <div className="space-y-4 w-full md:w-auto text-center md:text-left">
                                     <p className="text-[10px] text-gray-400 font-medium font-sans">
                                         {selectedSharedUsers.length} Users selected.
                                     </p>
-                                    <label className="flex items-center gap-3 cursor-pointer">
+                                    <label className="flex items-center justify-center md:justify-start gap-3 cursor-pointer">
                                         <input type="checkbox" className="w-5 h-5 rounded text-indigo-600" checked={allowMultipleSubmissions} onChange={(e) => setAllowMultipleSubmissions(e.target.checked)} />
                                         <div className="text-left font-sans">
                                             <p className="text-sm font-bold text-gray-800">Allow Multiple Submissions</p>
@@ -1112,7 +1112,7 @@ export default function CreateFormPage() {
                                         </div>
                                     </label>
                                 </div>
-                                <div className="flex gap-3">
+                                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                                     {sharingMode === 'COLLECT' && (
                                         <Button
                                             label="Copy Link"
@@ -1123,13 +1123,14 @@ export default function CreateFormPage() {
                                                 navigator.clipboard.writeText(link);
                                                 showMessage({ title: 'Success', message: "Link copied to clipboard: " + link, type: 'success' });
                                             }}
-                                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 w-full md:w-auto"
                                         />
                                     )}
                                     <Button
                                         label="Cancel"
                                         variant="secondary"
                                         onClick={() => setIsSharingModalOpen(false)}
+                                        className="w-full md:w-auto"
                                     />
                                     <Button
                                         label={sharingMode === 'COPY' ? "Share Copy" : "Distribute Form"}
@@ -1137,7 +1138,7 @@ export default function CreateFormPage() {
                                         onClick={handleConfirmShare}
                                         loading={isSaving}
                                         disabled={isSaving || selectedSharedUsers.length === 0}
-                                        className="px-8 shadow-lg shadow-indigo-200"
+                                        className="px-8 shadow-lg shadow-indigo-200 w-full md:w-auto"
                                     />
                                 </div>
                             </div>

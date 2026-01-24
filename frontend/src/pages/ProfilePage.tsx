@@ -338,8 +338,8 @@ const ProfilePage = () => {
                         </div>
                     )}
 
-                    <div className="flex justify-between items-start mb-8">
-                        <div>
+                    <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+                        <div className="w-full md:w-auto">
                             <h1 className="text-3xl font-bold text-gray-800">{user.fullName || "Guest"}</h1>
                             <div className="flex flex-wrap gap-2 mt-2">
                                 {user.availableRoles && user.availableRoles.length > 0 ? (
@@ -361,7 +361,7 @@ const ProfilePage = () => {
                                 )}
                             </div>
                         </div>
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 w-full md:w-auto justify-end">
                             {/* Secondary Logout for Restricted Users */}
                             {isOwnProfile && user.status !== 'Approved' && (
                                 <Button
@@ -378,15 +378,17 @@ const ProfilePage = () => {
                                 <Button
                                     variant="primary"
                                     onClick={() => setIsEditing(true)}
+                                    className="w-full md:w-auto"
                                 >
                                     Edit Profile
                                 </Button>
                             ) : (
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 w-full md:w-auto">
                                     <Button
                                         variant="secondary"
                                         onClick={() => setIsEditing(false)}
                                         icon={<X className="w-4 h-4" />}
+                                        className="flex-1 md:flex-none"
                                     >
                                         Cancel
                                     </Button>
@@ -396,6 +398,7 @@ const ProfilePage = () => {
                                         disabled={isLoading}
                                         loading={isLoading}
                                         icon={!isLoading && <Save className="w-4 h-4" />}
+                                        className="flex-1 md:flex-none"
                                     >
                                         Save Changes
                                     </Button>

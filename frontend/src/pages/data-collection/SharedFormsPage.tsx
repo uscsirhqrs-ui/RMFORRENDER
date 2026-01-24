@@ -513,7 +513,7 @@ export default function SharedFormsPage() {
                                             >
                                                 {selectedFormIds.has(form._id) ? <CheckSquare className="w-6 h-6 text-indigo-600" /> : <FileText className="w-6 h-6" />}
                                             </div>
-                                            <div className="flex-1 min-w-0">
+                                            <div className="flex-1 min-w-0 pr-28">
                                                 <CardTitle className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors truncate" title={form.title}>{form.title}</CardTitle>
                                                 <CardDescription className="text-xs text-gray-500 line-clamp-1 mt-0.5" title={form.description}>{form.description}</CardDescription>
                                             </div>
