@@ -269,11 +269,11 @@ function Header() {
               alt="Logo"
             />
           </Link>
-          <div className="hidden sm:flex flex-col text-[13px] sm:text-[14px] leading-[1.2] font-heading text-gray-700 dark:text-gray-300 ml-3 border-l-2 border-gray-200 dark:border-gray-700 pl-4">
+          <Link to={homePath} className="hidden sm:flex flex-col text-[13px] sm:text-[14px] leading-[1.2] font-heading text-gray-700 dark:text-gray-300 ml-3 border-l-2 border-gray-200 dark:border-gray-700 pl-4 hover:opacity-80 transition-opacity">
             <span className="font-bold tracking-tight text-gray-900 dark:text-white uppercase italic"> वैज्ञानिक तथा औद्योगिक अनुसंधान परिषद् </span>
             <span className="font-bold tracking-tight"> Council of Scientific &amp; Industrial Research</span>
             <span className="text-gray-400 font-medium dark:text-gray-500 text-[11px] sm:text-[12px]"> (Ministry of Science &amp; Technology, Govt. of India) </span>
-          </div>
+          </Link>
         </div>
 
         <nav id="nav" className="flex gap-4 sm:gap-8 items-center justify-end px-2 sm:px-6">
