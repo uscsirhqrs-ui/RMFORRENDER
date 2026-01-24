@@ -186,7 +186,7 @@ const AddAdminModal = ({ isOpen, onClose, onSuccess }: AddAdminModalProps) => {
                                         value={formData.labName}
                                         onChange={(e) => setFormData({ ...formData, labName: e.target.value })}
                                     >
-                                        <option value="" disabled>Select Lab / Institution</option>
+                                        <option value="" disabled>Select Lab</option>
                                         {availableLabs.map((lab) => (
                                             <option key={lab} value={lab}>{lab}</option>
                                         ))}

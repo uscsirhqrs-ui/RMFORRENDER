@@ -359,7 +359,7 @@ const AddGlobalReferenceModal: React.FC<AddReferenceModalProps> = ({ isOpen, onC
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label htmlFor="lab" className="block text-sm font-semibold text-gray-700 font-heading">Select Lab / Institution <span className="text-rose-500">*</span></label>
+                                <label htmlFor="lab" className="block text-sm font-semibold text-gray-700 font-heading">Select Lab / Unit <span className="text-rose-500">*</span></label>
                                 <DropDownWithSearch
                                     placeholder="Select Lab"
                                     options={labs.map((lab: string) => ({ label: lab, value: lab }))}

@@ -583,7 +583,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                         {status !== 'Closed' && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label htmlFor="lab" className="block text-sm font-medium text-gray-700">Select Lab / Institution <span className="text-red-500">*</span></label>
+                                    <label htmlFor="lab" className="block text-sm font-medium text-gray-700">Select Lab / Unit<span className="text-red-500">*</span></label>
                                     <DropDownWithSearch
                                         placeholder="Select Lab"
                                         options={labs.map((lab: string) => ({ label: lab, value: lab }))}
