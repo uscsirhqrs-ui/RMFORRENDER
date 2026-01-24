@@ -13,6 +13,7 @@ import toast from "react-hot-toast";
 import logo2 from "../../assets/images/logo2.svg";
 
 function Header() {
+  console.log("Rendering Header - vMobile2");
   const { user, isAuthenticated, login, hasPermission, isPermissionsLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
