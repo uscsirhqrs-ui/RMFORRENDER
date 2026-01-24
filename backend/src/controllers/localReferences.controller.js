@@ -320,7 +320,7 @@ export const getLocalDashboardStats = asyncHandler(async (req, res) => {
     baseCriteria.isHidden = { $ne: true };
     baseCriteria.isArchived = { $ne: true };
 
-    const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount] = await Promise.all([
+    const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount, totalReferences] = await Promise.all([
         LocalReference.countDocuments({ ...baseCriteria, status: { $ne: 'Closed' } }),
         LocalReference.countDocuments({ ...baseCriteria, priority: 'High', status: { $ne: 'Closed' } }),
         LocalReference.countDocuments({
@@ -334,7 +334,8 @@ export const getLocalDashboardStats = asyncHandler(async (req, res) => {
             updatedAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
         }),
         LocalReference.countDocuments({ ...baseCriteria, markedTo: userId, status: { $ne: 'Closed' } }),
-        req.user.division ? LocalReference.countDocuments({ ...baseCriteria, markedToDivision: req.user.division, status: { $ne: 'Closed' } }) : Promise.resolve(0)
+        req.user.division ? LocalReference.countDocuments({ ...baseCriteria, markedToDivision: req.user.division, status: { $ne: 'Closed' } }) : Promise.resolve(0),
+        LocalReference.countDocuments(baseCriteria)
     ]);
 
     res.status(200).json(new ApiResponse(200, 'Local stats fetched successfully', {
@@ -343,7 +344,8 @@ export const getLocalDashboardStats = asyncHandler(async (req, res) => {
         pending7DaysCount,
         closedThisMonthCount,
         markedToUserCount,
-        pendingInDivisionCount
+        pendingInDivisionCount,
+        totalReferences
     }));
 });
 

@@ -34,6 +34,7 @@ import ColumnVisibilityDropdown from "../../components/ui/ColumnVisibilityDropdo
 import DropdownWithCheckboxes from "../../components/ui/DropDownWithCheckBoxes";
 import { useAuth } from "../../context/AuthContext";
 import BulkUpdateLocalReferenceModal from "../../components/ui/BulkUpdateLocalReferenceModal";
+import ExportButton from "../../components/ui/ExportButton";
 
 function LocalReferencesPage() {
     const { user } = useAuth();
@@ -50,8 +51,12 @@ function LocalReferencesPage() {
         pending7DaysCount: 0,
         closedThisMonthCount: 0,
         markedToUserCount: 0,
-        pendingInDivisionCount: 0
+        pendingInDivisionCount: 0,
+        totalReferences: 0
     });
+
+
+
 
     // Filters
     const [availableCreatedByUsers, setAvailableCreatedByUsers] = useState<any[]>([]);
@@ -371,19 +376,62 @@ function LocalReferencesPage() {
                         Local References
                     </h1>
                 </div>
-                <Button
-                    variant="primary"
-                    label="Add New Local Ref"
-                    icon={<Plus className="w-4 h-4" />}
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="h-10 px-6 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold"
-                />
+                <div className="flex items-center gap-3">
+                    <ExportButton
+                        data={references}
+                        columns={[
+                            { header: 'Ref ID', dataKey: 'refId' },
+                            { header: 'Subject', dataKey: 'subject' },
+                            { header: 'Priority', dataKey: 'priority' },
+                            { header: 'Status', dataKey: 'status' },
+                            { header: 'Created By', dataKey: 'createdByDetails.fullName' },
+                            { header: 'Marked To', dataKey: 'markedToDetails.0.fullName' }, // Simplified for PDF
+                            { header: 'Date', dataKey: 'createdAt' },
+                            { header: 'Remarks', dataKey: 'remarks' }
+                        ]}
+                        filename={`Local-References-${user?.labName}`}
+                        title={`Local References - ${user?.labName}`}
+                        exportedBy={user ? `${user.fullName} (${user.email})` : 'Unknown User'}
+                        filterSummary={[
+                            selectedStatuses.length > 0 && `Status: ${selectedStatuses.join(', ')}`,
+                            selectedPriorities.length > 0 && `Priority: ${selectedPriorities.join(', ')}`,
+                            selectedMarkedTo.length > 0 && `To: ${selectedMarkedTo.map(e => availableMarkedToUsers.find(u => u.email === e)?.fullName || e).join(', ')}`,
+                            selectedCreatedBy.length > 0 && `By: ${selectedCreatedBy.map(e => availableCreatedByUsers.find(u => u.email === e)?.fullName || e).join(', ')}`,
+                            selectedDivisions.length > 0 && `Div: ${selectedDivisions.join(', ')}`,
+                            subjectFilter && `Subject: "${subjectFilter}"`,
+                            pendingDaysFilter && `Pending >= ${pendingDaysFilter} Days`
+                        ].filter(Boolean).join(' | ')}
+                        onExportAll={async () => {
+                            const filters = {
+                                status: selectedStatuses,
+                                priority: selectedPriorities,
+                                markedTo: selectedMarkedTo,
+                                createdBy: selectedCreatedBy,
+                                division: selectedDivisions,
+                                subject: subjectFilter,
+                                pendingDays: pendingDaysFilter
+                            };
+                            const res = await getAllLocalReferences(1, 10000, filters, sortConfig ? { sortBy: sortConfig.key, sortOrder: sortConfig.direction } : {});
+                            return res.data?.data || [];
+                        }}
+                        className="h-10 px-6 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700"
+                    />
+                    <Button
+                        variant="primary"
+                        label="Add New Local Ref"
+                        icon={<Plus className="w-4 h-4" />}
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="h-10 px-6 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold"
+                    />
+                </div>
             </div>
 
             <div className="-mt-4 pb-2">
                 <p className="text-gray-500 text-xs font-heading">
                     Manage references within <span className="font-bold text-indigo-600 uppercase">{user?.labName}</span>
-                    {totalReferences > 0 && <span className="ml-2 text-[8px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 uppercase tracking-tighter">Total: {totalReferences}</span>}
+                    {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase tracking-widest font-bold shadow-sm">
+                        Total: {totalReferences} of {stats.totalReferences}
+                    </span>}
                 </p>
             </div>
 

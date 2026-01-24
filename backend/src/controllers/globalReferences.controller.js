@@ -289,7 +289,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     baseCriteria.isInterLab = true;
   }
 
-  const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount] = await Promise.all([
+  const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount, totalReferences] = await Promise.all([
     GlobalReference.countDocuments({ ...baseCriteria, status: { $ne: 'Closed' } }),
     GlobalReference.countDocuments({ ...baseCriteria, priority: 'High', status: { $ne: 'Closed' } }),
     GlobalReference.countDocuments({
@@ -303,7 +303,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
       updatedAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
     }),
     GlobalReference.countDocuments({ ...baseCriteria, markedTo: userId, status: { $ne: 'Closed' } }),
-    req.user.division ? GlobalReference.countDocuments({ ...baseCriteria, markedToDivision: req.user.division, status: { $ne: 'Closed' } }) : Promise.resolve(0)
+    req.user.division ? GlobalReference.countDocuments({ ...baseCriteria, markedToDivision: req.user.division, status: { $ne: 'Closed' } }) : Promise.resolve(0),
+    GlobalReference.countDocuments(baseCriteria)
   ]);
 
   res.status(200).json(new ApiResponse(200, 'Stats fetched successfully', {
@@ -312,7 +313,8 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     pending7DaysCount,
     closedThisMonthCount,
     markedToUserCount,
-    pendingInDivisionCount
+    pendingInDivisionCount,
+    totalReferences
   }));
 });
 

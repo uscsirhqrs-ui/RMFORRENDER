@@ -36,6 +36,7 @@ import { useAuth } from "../../context/AuthContext";
 import { FeatureCodes } from "../../constants";
 import UserProfileViewModal from "../../components/ui/UserProfileViewModal";
 import BulkUpdateGlobalReferenceModal from "../../components/ui/BulkUpdateGlobalReferenceModal";
+import ExportButton from "../../components/ui/ExportButton";
 
 type CheckBoxOption = {
     label: string;
@@ -81,7 +82,8 @@ function GlobalReferencesPage() {
         pending7DaysCount: 0,
         closedThisMonthCount: 0,
         markedToUserCount: 0,
-        pendingInDivisionCount: 0
+        pendingInDivisionCount: 0,
+        totalReferences: 0
     });
 
     // Filter States
@@ -436,13 +438,52 @@ function GlobalReferencesPage() {
                             Global References
                         </h1>
                     </div>
-                    <Button
-                        variant="primary"
-                        label="Add New Global Ref"
-                        icon={<Plus />}
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="h-10 px-6 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold"
-                    />
+                    <div className="flex items-center gap-3">
+                        <ExportButton
+                            data={references}
+                            columns={[
+                                { header: 'Ref ID', dataKey: 'refId' },
+                                { header: 'Subject', dataKey: 'subject' },
+                                { header: 'Priority', dataKey: 'priority' },
+                                { header: 'Status', dataKey: 'status' },
+                                { header: 'Created By', dataKey: 'createdByDetails.fullName' },
+                                { header: 'Marked To', dataKey: 'markedToDetails.0.fullName' },
+                                { header: 'Division', dataKey: 'markedToDetails.0.division' },
+                                { header: 'Date', dataKey: 'createdAt' },
+                                { header: 'Remarks', dataKey: 'remarks' }
+                            ]}
+                            filename={`Global-References-${user?.labName}`}
+                            title={`Global References - ${user?.labName}`}
+                            exportedBy={user ? `${user.fullName} (${user.email})` : 'Unknown User'}
+                            onExportAll={async () => {
+                                const filters = {
+                                    status: selectedStatuses,
+                                    priority: selectedPriorities,
+                                    markedTo: selectedMarkedTo,
+                                    createdBy: selectedCreatedBy,
+                                    division: selectedDivisions,
+                                    subject: subjectFilter,
+                                    pendingDays: pendingDaysFilter,
+                                    scope: scopeFilter,
+                                };
+                                const sort = sortConfig ? {
+                                    sortBy: sortConfig.key,
+                                    sortOrder: sortConfig.direction
+                                } : {};
+
+                                const res = await getAllReferences(1, 10000, filters, sort);
+                                return res.data?.data || [];
+                            }}
+                            className="h-10 px-6 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700"
+                        />
+                        <Button
+                            variant="primary"
+                            label="Add New Global Ref"
+                            icon={<Plus />}
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="h-10 px-6 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold"
+                        />
+                    </div>
                 </div>
 
                 <div className="-mt-4 pb-2">
