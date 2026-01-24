@@ -34,6 +34,8 @@ const ExportButton: React.FC<ExportButtonProps> = ({
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('landscape');
+
     const handleExport = async (format: 'csv' | 'pdf', scope: 'page' | 'all') => {
         setIsOpen(false);
         try {
@@ -47,8 +49,6 @@ const ExportButton: React.FC<ExportButtonProps> = ({
                 setIsLoading(false);
             }
 
-            // Transform data for CSV if needed (flattening logic is simple in utils, but we pass raw data)
-            // Ideally, we might want to pre-process data here based on columns to ensure CSV matches PDF columns
             const processedData = exportData.map(row => {
                 const newRow: any = {};
                 columns.forEach(col => {
@@ -57,7 +57,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
                     keys.forEach(k => {
                         val = (val && val[k]) ? val[k] : '';
                     });
-                    newRow[col.header] = val; // Use header as key for CSV readability
+                    newRow[col.header] = val;
                 });
                 return newRow;
             });
@@ -65,7 +65,7 @@ const ExportButton: React.FC<ExportButtonProps> = ({
             if (format === 'csv') {
                 exportToCSV(processedData, finalFilename);
             } else {
-                exportToPDF(exportData, columns, title, finalFilename, exportedBy, filterSummary);
+                exportToPDF(exportData, columns, title, finalFilename, exportedBy, filterSummary, pdfOrientation);
             }
 
         } catch (error) {
@@ -86,9 +86,30 @@ const ExportButton: React.FC<ExportButtonProps> = ({
             />
 
             {isOpen && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="py-1" role="menu">
-                        <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider font-heading border-b border-gray-100">
+                <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-lg bg-white ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2">
+                    <div className="py-2" role="menu">
+                        {/* Orientation Select */}
+                        <div className="px-4 py-2 border-b border-gray-100">
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider font-heading mb-1">
+                                PDF Orientation
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setPdfOrientation('portrait'); }}
+                                    className={`flex-1 py-1 text-xs font-bold rounded border ${pdfOrientation === 'portrait' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'}`}
+                                >
+                                    Portrait
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setPdfOrientation('landscape'); }}
+                                    className={`flex-1 py-1 text-xs font-bold rounded border ${pdfOrientation === 'landscape' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'}`}
+                                >
+                                    Landscape
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider font-heading border-b border-gray-100 bg-gray-50/50">
                             Current Page ({data.length})
                         </div>
                         <button
@@ -107,18 +128,20 @@ const ExportButton: React.FC<ExportButtonProps> = ({
                         {onExportAll && (
                             <>
                                 <div className="border-t border-gray-100 my-1"></div>
-                                <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider font-heading border-b border-gray-100">
+                                <div className="px-4 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider font-heading border-b border-gray-100 bg-gray-50/50">
                                     All Data (Filtered)
                                 </div>
                                 <button
                                     onClick={() => handleExport('csv', 'all')}
                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 transition-colors"
+                                    title="Export all rows matching current filters as CSV"
                                 >
                                     <TableIcon className="w-4 h-4" /> All CSV
                                 </button>
                                 <button
                                     onClick={() => handleExport('pdf', 'all')}
                                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 transition-colors"
+                                    title={`Export all matching rows as PDF (${pdfOrientation})`}
                                 >
                                     <FileText className="w-4 h-4" /> All PDF
                                 </button>

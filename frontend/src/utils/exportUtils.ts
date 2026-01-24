@@ -48,14 +48,15 @@ export const exportToPDF = (
     title: string,
     filename: string,
     exportedBy?: string,
-    filterSummary?: string
+    filterSummary?: string,
+    orientation: 'portrait' | 'landscape' = 'landscape'
 ) => {
     if (!data || data.length === 0) {
         console.warn("No data to export");
         return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({ orientation });
 
     // Title
     doc.setFont("helvetica", "bold");
