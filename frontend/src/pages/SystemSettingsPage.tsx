@@ -525,7 +525,7 @@ const SystemSettingsPage: React.FC = () => {
                             </p>
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <input
                                 type="text"
                                 value={newDomain}
@@ -576,7 +576,7 @@ const SystemSettingsPage: React.FC = () => {
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             value={newLab}
@@ -616,7 +616,7 @@ const SystemSettingsPage: React.FC = () => {
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             value={newDesignation}
@@ -692,7 +692,7 @@ const SystemSettingsPage: React.FC = () => {
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
                             value={newDivision}
