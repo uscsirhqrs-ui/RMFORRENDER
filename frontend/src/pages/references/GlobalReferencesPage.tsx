@@ -99,7 +99,6 @@ function GlobalReferencesPage() {
     const [pendingDaysFilter, setPendingDaysFilter] = useState<number | "">("");
 
     // Scope is generic for Global References (includes both Inter-lab and same-lab if created as Global)
-    const scopeFilter = 'inter-lab';
 
     // Pagination & Sorting State
     const [currentPage, setCurrentPage] = useState(1);
@@ -140,7 +139,7 @@ function GlobalReferencesPage() {
 
     const fetchFilters = async () => {
         try {
-            const res = await getReferenceFilters('inter-lab');
+            const res = await getReferenceFilters();
             if (res.success && res.data) {
                 if (res.data.createdByUsers) setAvailableCreatedByUsers(res.data.createdByUsers);
                 if (res.data.markedToUsers) setAvailableMarkedToUsers(res.data.markedToUsers);
@@ -314,7 +313,7 @@ function GlobalReferencesPage() {
     // Clear selection when filters change (optional, but safer)
     useEffect(() => {
         setSelectedIds(new Set());
-    }, [selectedStatuses, selectedPriorities, selectedMarkedTo, selectedCreatedBy, selectedDivisions, subjectFilter, pendingDaysFilter, scopeFilter]);
+    }, [selectedStatuses, selectedPriorities, selectedMarkedTo, selectedCreatedBy, selectedDivisions, subjectFilter, pendingDaysFilter]);
 
     const handleSelectAll = () => {
         // Filter references that are marked to the current user
@@ -510,7 +509,6 @@ function GlobalReferencesPage() {
                                     division: selectedDivisions,
                                     subject: subjectFilter,
                                     pendingDays: pendingDaysFilter,
-                                    scope: scopeFilter,
                                 };
                                 const sort = sortConfig ? {
                                     sortBy: sortConfig.key,

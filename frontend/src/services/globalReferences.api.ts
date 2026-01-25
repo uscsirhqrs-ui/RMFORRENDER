@@ -33,32 +33,16 @@ const handleResponse = async (response: Response) => {
 };
 
 
-/**
- * Fetches dashboard statistics.
- * @param {string} [scope] - Optional scope filter (e.g., 'lab', 'inter-lab')
- * @returns {Promise<any>} The response data containing stats.
- */
-export const getDashboardStats = async (scope?: string | null) => {
-    console.log("Fetching dashboard stats...", { scope });
+export const getDashboardStats = async () => {
+    console.log("Fetching dashboard stats...");
     const url = new URL(`${API_BASE_URL}/references/global/getDashboardStats`);
-    if (scope) {
-        url.searchParams.append('scope', scope);
-    }
     const response = await fetch(url.toString(), { credentials: 'include' });
     return handleResponse(response);
 };
 
-/**
- * Fetches available users and divisions for filters.
- * @param {string} [scope] - Optional scope filter (e.g., 'lab', 'inter-lab')
- * @returns {Promise<any>} The response data containing filter options.
- */
-export const getReferenceFilters = async (scope?: string, params: { isArchived?: boolean, isHidden?: boolean } = {}) => {
-    console.log("Fetching reference filters...", { scope, ...params });
+export const getReferenceFilters = async (params: { isArchived?: boolean, isHidden?: boolean } = {}) => {
+    console.log("Fetching reference filters...", params);
     const url = new URL(`${API_BASE_URL}/references/global/getFilters`);
-    if (scope) {
-        url.searchParams.append('scope', scope);
-    }
     if (params.isArchived !== undefined) url.searchParams.append('isArchived', String(params.isArchived));
     if (params.isHidden !== undefined) url.searchParams.append('isHidden', String(params.isHidden));
 
@@ -106,19 +90,7 @@ export const getAllReferences = async (
     return handleResponse(response);
 };
 
-/**
- * Adds a new reference to the system.
- * 
- * @param reference - The reference object to add.
- * @param reference.subject - Subject of the reference.
- * @param reference.remarks - Remarks or details.
- * @param reference.status - Current status.
- * @param reference.priority - Priority level.
- * @param reference.markedTo - User ID or name the reference is marked to.
- * @param reference.tags - Array of tags (optional).
- * @returns {Promise<any>} The response data from the backend.
- */
-export const addReference = async (reference: { subject: string; eofficeNo?: string; remarks: string; status: string; priority: string; markedTo: string; tags: string[]; scope?: string; deliveryMode?: string; deliveryDetails?: string; sentAt?: string }) => {
+export const addReference = async (reference: { subject: string; eofficeNo?: string; remarks: string; status: string; priority: string; markedTo: string; tags: string[]; deliveryMode?: string; deliveryDetails?: string; sentAt?: string }) => {
     // The backend route is /createReference under /api/v1/references
     const response = await fetch(`${API_BASE_URL}/references/global/createReference`, {
         method: 'POST',
