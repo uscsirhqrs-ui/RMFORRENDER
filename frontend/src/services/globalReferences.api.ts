@@ -37,19 +37,22 @@ const handleResponse = async (response: Response) => {
 
 export const getDashboardStats = async () => {
     console.log("Fetching dashboard stats...");
-    const url = new URL(`${API_BASE_URL}/references/global/getDashboardStats`);
-    const response = await fetch(url.toString(), { credentials: 'include' });
+    const response = await fetch(`${API_BASE_URL}/references/global/getDashboardStats`, { credentials: 'include' });
     console.log("Response global stats: ", response);
     return handleResponse(response);
 };
 
 export const getReferenceFilters = async (params: { isArchived?: boolean, isHidden?: boolean } = {}) => {
     console.log("Fetching reference filters...", params);
-    const url = new URL(`${API_BASE_URL}/references/global/getFilters`);
-    if (params.isArchived !== undefined) url.searchParams.append('isArchived', String(params.isArchived));
-    if (params.isHidden !== undefined) url.searchParams.append('isHidden', String(params.isHidden));
 
-    const response = await fetch(url.toString(), { credentials: 'include' });
+    const queryParams = new URLSearchParams();
+    if (params.isArchived !== undefined) queryParams.append('isArchived', String(params.isArchived));
+    if (params.isHidden !== undefined) queryParams.append('isHidden', String(params.isHidden));
+
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/references/global/getFilters${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, { credentials: 'include' });
     return handleResponse(response);
 };
 
