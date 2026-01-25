@@ -198,6 +198,35 @@ app.get('/api/v1/debug/verify', (req, res) => {
   });
 });
 
+// TEMPORARY: Data fix endpoint for users without shell access on Render
+app.get('/api/v1/debug/fix-data', async (req, res) => {
+  try {
+    const globalColl = mongoose.connection.collection('globalreferences');
+    const localColl = mongoose.connection.collection('localreferences');
+
+    const globalRes = await globalColl.updateMany(
+      { $or: [{ isInterLab: { $exists: false } }, { isInterLab: false }] },
+      { $set: { isInterLab: true } }
+    );
+
+    const localRes = await localColl.updateMany(
+      { $or: [{ isInterLab: { $exists: false } }, { isInterLab: true }] },
+      { $set: { isInterLab: false } }
+    );
+
+    res.json({
+      success: true,
+      message: "Data reconciliation complete",
+      global_updated: globalRes.modifiedCount,
+      local_updated: localRes.modifiedCount,
+      note: "All Global references set to isInterLab: true, all Local references set to isInterLab: false."
+    });
+  } catch (err) {
+    console.error("Data fix failed:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 
 // Serve React Frontend for any unknown routes (SPA)
 // MUST come after API routes but before Error Handling
