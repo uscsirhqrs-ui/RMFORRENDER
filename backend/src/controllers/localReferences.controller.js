@@ -278,8 +278,8 @@ export const getLocalReferenceById = asyncHandler(async (req, res) => {
         throw new ApiErrors('Local reference not found', 404);
     }
 
-    const hasGlobalAdmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const hasLocalAdmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+    const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+    const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
     const isAdmin = hasGlobalAdmin || hasLocalAdmin;
 
     // Access Check: Same lab OR Global Admin

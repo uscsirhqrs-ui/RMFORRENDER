@@ -25,19 +25,11 @@ import { getCurrentUser } from "./user.controller.js";
 import { FeatureCodes, SUPERADMIN_ROLE_NAME, ReferenceType } from "../constants.js";
 import { hasPermission, getRolesWithPermission, checkUserPermission } from "../utils/permission.utils.js";
 import { generateUniqueRefId } from "../utils/reference.utils.js";
-
-
-
+import { getReferencesWithDetailsPipeline } from "../pipelines/reference.pipelines.js";
+import { SystemConfig } from "../models/systemConfig.model.js";
 
 /**
  * Fetches all references from the database.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- * @returns {Promise<void>} Sends a JSON response with the list of references
- */
-import { getReferencesWithDetailsPipeline } from "../pipelines/reference.pipelines.js";
 
 /**
  * Fetches all references from the database.
@@ -646,34 +638,29 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
     const createdById = reference.createdBy && reference.createdBy._id ? reference.createdBy._id.toString() : reference.createdBy?.toString();
     const markedToId = reference.markedTo && reference.markedTo._id ? reference.markedTo._id.toString() : reference.markedTo?.toString();
 
-    const canManageGlobal = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-    const canManageLocal = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const canManageAllLocal = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+    const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+    const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
+    const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
-    const isGlobalAdmin = canManageGlobal || canManageAllLocal;
+    const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
 
-    if (!isGlobalAdmin && requesterId !== createdById && requesterId !== markedToId) {
+    // Robust markedTo check (handle array and objects)
+    const isMarkedTo = Array.isArray(reference.markedTo)
+      ? reference.markedTo.some(m => String(m._id || m) === requesterId)
+      : String(reference.markedTo?._id || reference.markedTo) === requesterId;
+
+    if (!canSeeAllGlobal && requesterId !== createdById && !isMarkedTo) {
       // Check if user is in movement history
       const inHistory = await GlobalMovement.exists({
         reference: referenceId,
         $or: [{ markedTo: userId }, { performedBy: userId }]
       });
 
-      // Also allow if they have "Add/Update/View References(inter lab)" permission AND it's a Global Reference
-      // But usually View permission implies seeing the LIST. Viewing DETAILS might require involvement or admin.
-      // However, if I can see it in the list, I should be able to see details.
-      // The list logic allowed: hasGlobalRefAdmin OR inter-lab permission.
-      // So if I have 'Add/Update/View References(inter lab)', I should see it?
-      // Let's stick to "Admin or Participant" for now, but add "Manage Global References" as Admin.
-
       if (!inHistory) {
-        // If they have the broader view permission, maybe we should allow? 
-        // For now, let's assume "Manage Global Ref" covers the admin case reported by user.
         return next(new ApiErrors('Forbidden: You do not have access to this reference', 403));
       }
     }
   } catch (err) {
-    // If something goes wrong during comparison (or simple errors), deny access
     return next(new ApiErrors('Forbidden: You do not have access to this reference', 403));
   }
 
@@ -687,14 +674,6 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
   res.status(200).json(new ApiResponse(200, 'Reference fetched successfully', { reference, movements, type: onModel }));
 });
 /**
- * Creates a new reference.
- * 
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- * @returns {Promise<void>} Sends a JSON response with the created reference
- */
-import { SystemConfig } from "../models/systemConfig.model.js";
 
 /**
  * Helper to validate remarks against word limit.

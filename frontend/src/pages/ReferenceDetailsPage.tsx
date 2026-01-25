@@ -105,18 +105,28 @@ function ReferenceDetailsPage() {
                     return;
                 }
             } else {
-                const globalResponse = await getReferenceById(id);
-                if (globalResponse.success && globalResponse.data) {
-                    setData(globalResponse.data);
-                    setRefType('GlobalReference');
-                    return;
+                // Attempt Global first
+                try {
+                    const globalResponse = await getReferenceById(id);
+                    if (globalResponse.success && globalResponse.data) {
+                        setData(globalResponse.data);
+                        setRefType('GlobalReference');
+                        return;
+                    }
+                } catch (gErr) {
+                    console.log("Global fetch failed, trying local fallback", gErr);
                 }
-                // Fallback for unified robustness
-                const localResponse = await getLocalReferenceById(id);
-                if (localResponse.success && localResponse.data) {
-                    setData(localResponse.data);
-                    setRefType('LocalReference');
-                    return;
+
+                // Attempt Local second
+                try {
+                    const localResponse = await getLocalReferenceById(id);
+                    if (localResponse.success && localResponse.data) {
+                        setData(localResponse.data);
+                        setRefType('LocalReference');
+                        return;
+                    }
+                } catch (lErr) {
+                    console.log("Local fetch failed", lErr);
                 }
             }
 
@@ -282,31 +292,31 @@ function ReferenceDetailsPage() {
 
     return (
         <div className="container mx-auto p-4">
-            {/* Back button */}
-            <div className="flex justify-between items-center mb-6">
+            {/* Back button and Print Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <button
                     onClick={() => {
                         navigate(-1);
                     }}
-                    className="flex items-center text-gray-600 hover:text-gray-900"
+                    className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group"
                 >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    {refType === 'LocalReference' ? 'Back to Local References' : 'Back to Global References'}
+                    <ArrowLeft className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" />
+                    <span className="text-sm font-medium">{refType === 'LocalReference' ? 'Back to Local References' : 'Back to Global References'}</span>
                 </button>
 
                 {/* Orientation Selection & Print Action */}
-                <div className="flex items-center gap-3">
-                    <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+                <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                    <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200 w-full sm:w-auto">
                         <button
                             onClick={() => setPrintOrientation('portrait')}
-                            className={`px-3 py-1 text-xs rounded-md transition-all ${printOrientation === 'portrait' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 sm:px-3 py-1.5 text-xs rounded-md transition-all ${printOrientation === 'portrait' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                             title="Portrait Mode"
                         >
                             Portrait
                         </button>
                         <button
                             onClick={() => setPrintOrientation('landscape')}
-                            className={`px-3 py-1 text-xs rounded-md transition-all ${printOrientation === 'landscape' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex-1 sm:px-3 py-1.5 text-xs rounded-md transition-all ${printOrientation === 'landscape' ? 'bg-white text-indigo-600 shadow-sm font-semibold' : 'text-gray-500 hover:text-gray-700'}`}
                             title="Landscape Mode"
                         >
                             Landscape
@@ -316,7 +326,7 @@ function ReferenceDetailsPage() {
                     <Button
                         label="Print"
                         variant="secondary"
-                        className="h-10 w-32 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700 uppercase tracking-wider mr-6"
+                        className="h-9 sm:h-10 w-full sm:w-32 shadow-lg shadow-gray-200/50 hover:shadow-gray-300/50 whitespace-nowrap font-heading text-sm font-semibold border-gray-200 bg-white text-gray-700 uppercase tracking-wider"
                         icon={<Printer className="w-4 h-4" />}
                         onClick={handlePrint}
                     />
@@ -391,61 +401,65 @@ function ReferenceDetailsPage() {
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white rounded-lg shadow-sm p-6">
                         {/* Header */}
-                        <div className="flex justify-between items-start mb-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
                             <div>
-                                <h2 className="text-xl font-semibold mb-1 animate-text-gradient">Movement Flow</h2>
+                                <h2 className="text-xl font-bold text-gray-900 mb-1 animate-text-gradient">Movement Flow</h2>
                                 <p className="text-gray-500 text-sm">Chronological history of the reference.</p>
                             </div>
                             {/* Reminder / Reopen Request Button */}
                             {(isAdmin || (currentUser?._id && movements?.some(m =>
                                 (m.markedTo?._id === currentUser._id) || (m.performedBy?._id === currentUser._id)
                             )) || (currentUser?._id && reference.createdBy && (typeof reference.createdBy === 'object' ? reference.createdBy._id === currentUser._id : reference.createdBy === currentUser._id))) && (
-                                    <>
+                                    <div className="w-full sm:w-auto">
                                         {reference.status === 'Closed' ? (
                                             /* HIDE BUTTON if Admin OR if Request is already Pending */
                                             !isAdmin && !reference.reopenRequest && (
                                                 <Button
-                                                    label="Send Reopening Request"
-                                                    className="px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 shadow-sm text-sm font-medium"
+                                                    label="Reopening Request"
+                                                    className="w-full sm:w-auto px-6 py-2.5 bg-orange-600 text-white hover:bg-orange-700 shadow-sm text-sm font-bold uppercase tracking-wider"
                                                     onClick={() => setIsReopenModalOpen(true)}
                                                 />
                                             )
                                         ) : (
                                             <Button
                                                 label="Issue Reminder / Seek Inputs"
-                                                className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm text-sm font-medium"
+                                                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm text-sm font-bold uppercase tracking-wider"
                                                 onClick={() => setIsReminderModalOpen(true)}
                                             />
                                         )}
-                                    </>
+                                    </div>
                                 )}
                         </div>
 
-                        <div className="relative">
+                        <div className="relative overflow-visible">
                             {/* Vertical Line */}
-                            <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                            <div className="absolute left-6 sm:left-6 top-0 bottom-0 w-0.5 bg-gray-100 italic"></div>
 
                             <div className="space-y-8">
                                 {movements && movements.map((movement) => (
-                                    <div key={movement._id} className="relative flex gap-6">
+                                    <div key={movement._id} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6 group">
                                         {/* Status Circle */}
-                                        <div className="flex-none">
+                                        <div className="flex-none flex sm:block items-center gap-3">
                                             <div
-                                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-4 border-white ring-1 ring-gray-100"
                                                 style={{ backgroundColor: '#a855f7' }}
                                             >
                                                 {((movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))?.fullName?.substring(0, 2).toUpperCase()) || "NA"}
                                             </div>
+                                            {/* Date for mobile - beside avatar */}
+                                            <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                                {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </span>
                                         </div>
 
                                         {/* Content */}
                                         <div className="grow">
                                             <div className="flex justify-between items-start mb-1">
                                                 <div>
-                                                    <h3 className="font-semibold text-gray-900">
+                                                    <h3 className="font-semibold text-gray-900 flex flex-wrap">
                                                         <button
                                                             onClick={() => openUserProfile(getUserId(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)))}
-                                                            className="hover:text-indigo-600 hover:underline text-left font-semibold"
+                                                            className="hover:text-indigo-600 hover:underline text-left font-semibold wrap-break-word"
                                                         >
                                                             {getUserDisplayName(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
                                                         </button>
@@ -524,61 +538,73 @@ function ReferenceDetailsPage() {
 
                 {/* Right Column: Reference Details Card */}
                 <div className="lg:col-span-1">
-                    <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
-                        {/* Details Header and Status */}
-                        <div className="flex justify-between items-stretch mb-6">
-                            {/* Left Column: Title, Info, Status */}
-                            <div className="flex-1 min-w-0 pr-4 flex flex-col gap-4">
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6 lg:sticky lg:top-6">
+                        {/* Details Header - Stacked on mobile */}
+                        <div className="flex flex-col gap-6 mb-8">
+                            {/* Title and Info Area */}
+                            <div className="space-y-4">
                                 <div>
-                                    <h1 className="text-xl font-bold text-gray-900 wrap-break-word mr-2">{reference.subject}</h1>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2">
-                                        <p className="text-sm text-gray-500 min-w-0"><span className="font-medium mr-1">Ref ID:</span><span className="wrap-break-word">{reference.refId || 'N/A'}</span></p>
-                                        <p className="text-sm text-gray-500 min-w-0"><span className="font-medium mr-1">Mode Sent:</span><span className="wrap-break-word">{reference.deliveryMode || 'N/A'}</span></p>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight tracking-tight wrap-break-word">{reference.subject}</h1>
+
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Reference ID</span>
+                                            <span className="text-sm font-semibold text-gray-700 wrap-break-word">{reference.refId || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Mode Sent</span>
+                                            <span className="text-sm font-semibold text-gray-700">{reference.deliveryMode || 'N/A'}</span>
+                                        </div>
                                         {reference.deliveryMode && (
-                                            <p className="text-sm text-gray-500 min-w-0">
-                                                <span className="font-medium mr-1">{reference.deliveryMode === 'Eoffice' ? 'Issue No:' : 'Sent To:'}</span>
-                                                <span className="wrap-break-word">{reference.deliveryDetails || 'N/A'}</span>
-                                            </p>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">
+                                                    {reference.deliveryMode === 'Eoffice' ? 'Issue No' : 'Sent To'}
+                                                </span>
+                                                <span className="text-sm font-semibold text-gray-700 wrap-break-word">{reference.deliveryDetails || 'N/A'}</span>
+                                            </div>
                                         )}
                                         {reference.sentAt && (
-                                            <p className="text-sm text-gray-500 min-w-0">
-                                                <span className="font-medium mr-1">Sent Date:</span>
-                                                <span className="break-all">{new Date(reference.sentAt).toLocaleDateString()}</span>
-                                            </p>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">Sent Date</span>
+                                                <span className="text-sm font-semibold text-gray-700">{new Date(reference.sentAt).toLocaleDateString()}</span>
+                                            </div>
                                         )}
                                         {reference.eofficeNo && (
-                                            <p className="text-sm text-gray-500 min-w-0"><span className="font-medium mr-1">E-office No:</span><span className="break-all">{reference.eofficeNo}</span></p>
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none">E-office No</span>
+                                                <span className="text-sm font-semibold text-gray-700 break-all">{reference.eofficeNo}</span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex gap-2 mt-auto">
-                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-50 text-red-700 text-[11px] font-bold border border-red-100 uppercase tracking-tighter">
+
+                                <div className="flex items-center gap-2 pt-2">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-[10px] font-bold border border-red-100 uppercase tracking-wider">
                                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                                         {reference.status}
                                     </span>
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-200 uppercase tracking-tighter">
+                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-200 uppercase tracking-wider">
                                         {reference.priority === 'High' ? '↑' : reference.priority === 'Medium' ? '→' : '↓'} {reference.priority} Priority
                                     </span>
                                 </div>
                             </div>
 
-                            {/* Right Column: Update Button and Badge */}
-                            <div className="shrink-0 flex flex-col items-center justify-between py-1">
-                                <div>
-                                    <Button
-                                        label="Update"
-                                        variant="primary"
-                                        className="h-10 w-32 shadow-lg shadow-indigo-500/20 whitespace-nowrap font-heading text-sm font-semibold uppercase tracking-wider"
-                                        onClick={() => setIsUpdateModalOpen(true)}
-                                        disabled={!canUpdate}
-                                    />
-                                </div>
-                                <div className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-bold border shadow-sm ${refType === 'LocalReference'
+                            {/* Actions Area */}
+                            <div className="flex flex-row items-center justify-between gap-4 pt-4 border-t border-gray-50">
+                                <Button
+                                    label="Update Reference"
+                                    variant="primary"
+                                    className="flex-1 h-11 shadow-lg shadow-indigo-500/20 font-heading text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                                    onClick={() => setIsUpdateModalOpen(true)}
+                                    disabled={!canUpdate}
+                                />
+                                <div className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold border shadow-sm ${refType === 'LocalReference'
                                     ? 'bg-orange-50 text-orange-700 border-orange-200'
                                     : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                     }`}>
-                                    {refType === 'LocalReference' ? <Building2 className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
-                                    <span>{refType === 'LocalReference' ? 'Local Ref' : 'Global Ref'}</span>
+                                    {refType === 'LocalReference' ? <Building2 className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                                    <span className="hidden sm:inline italic">Type: </span>
+                                    {refType === 'LocalReference' ? 'Local Ref' : 'Global Ref'}
                                 </div>
                             </div>
                         </div>
@@ -652,7 +678,7 @@ function ReferenceDetailsPage() {
                                     <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-1">Created by:</p>
                                     <button
                                         onClick={() => openUserProfile(getUserId(reference.createdBy))}
-                                        className="text-sm font-medium hover:text-indigo-600 hover:underline text-left inline"
+                                        className="text-sm font-medium hover:text-indigo-600 hover:underline text-left inline wrap-break-word"
                                     >
                                         {getUserDisplayName(reference.createdBy)}
                                     </button>
@@ -694,7 +720,7 @@ function ReferenceDetailsPage() {
                                             <div className="inline-flex items-center gap-2">
                                                 <button
                                                     onClick={() => openUserProfile(getUserId(Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo))}
-                                                    className="text-sm text-gray-600 hover:text-indigo-600 hover:underline text-left leading-snug"
+                                                    className="text-sm text-gray-600 hover:text-indigo-600 hover:underline text-left leading-snug wrap-break-word"
                                                 >
                                                     {getUserDisplayName(Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo)}
                                                 </button>
@@ -714,8 +740,8 @@ function ReferenceDetailsPage() {
                     </div>
 
                     <div className="mt-8 pt-6 border-t border-slate-50 text-center animate-text-gradient">
-                        <p className="text-[11px] text-slate-400 mb-4 italic">Update button will be enabled only if the reference is currently assigned to you</p>
-                        <p className="text-[11px] font-bold text-slate-300">© {new Date().getFullYear()} Council of Scientific & Industrial Research</p>
+                        <p className="text-[11px] text-slate-400 mb-4 italic px-2 wrap-break-word">Update button will be enabled only if the reference is currently assigned to you</p>
+                        <p className="text-[11px] font-bold text-slate-300 px-2 wrap-break-word">© {new Date().getFullYear()} Council of Scientific & Industrial Research</p>
                     </div>
                 </div>
             </div>
