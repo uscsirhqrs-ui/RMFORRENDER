@@ -256,17 +256,27 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
 export const getDashboardStats = asyncHandler(async (req, res) => {
   const { scope } = req.query;
   const userId = new mongoose.Types.ObjectId(req.user._id);
-  const isGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const isLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
   const userLab = req.user.labName;
 
-  const isAdmin = isGlobalAdmin || isLocalAdmin; // Simple flag for "Is some kind of admin"
+  /* 
+   * ACCESS CONTROL LOGIC
+   * visibility is strictly feature-permission based.
+   * Matches logic in getAllReferences.
+   */
+  const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+  const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+  const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
+  const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
+
+  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
 
   let baseCriteria = {};
 
-  if (isGlobalAdmin) {
+  if (canSeeAllGlobal) {
+    // Users with global feature permissions see ALL inter-lab refs
     baseCriteria = {};
-  } else if (isLocalAdmin) {
+  } else if (canManageOwnLab) {
+    // Lab admins see all in their lab plus anything they are part of
     baseCriteria = {
       $or: [
         { participants: userId },
@@ -275,6 +285,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
       ]
     };
   } else {
+    // Normal users only see what they participate in
     baseCriteria = { participants: userId };
   }
 
