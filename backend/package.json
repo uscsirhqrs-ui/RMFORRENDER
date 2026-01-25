@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "build": "cd ../frontend && npm install && npm run build && node deploy.js"
+    "build": "echo '--- BUILDING FRONTEND ---' && cd ../frontend && npm install && npm run build && echo '--- DEPLOYING FRONTEND TO BACKEND ---' && node deploy.js && echo '--- BUILD COMPLETE ---'"
   },
   "keywords": [
     "chai",

@@ -178,25 +178,23 @@ if (!fs.existsSync(tempDir)) {
 
 app.use(express.static(publicDir));
 
-// DEBUG ROUTE: Check file system capability
-app.get('/api/debug-diagnostics', (req, res) => {
-  const publicPath = path.join(__dirname, "../public");
-  const rootPath = path.join(__dirname, "../");
-
-  let publicListing = [];
-  try { publicListing = fs.readdirSync(publicPath); } catch (e) { publicListing = [`Error: ${e.message}`]; }
-
-  let rootListing = [];
-  try { rootListing = fs.readdirSync(rootPath); } catch (e) { rootListing = [`Error: ${e.message}`]; }
+// DEBUG ROUTE: Check file system and code content for verification on Render
+app.get('/api/v1/debug/verify', (req, res) => {
+  const controllerPath = path.join(__dirname, "./controllers/globalReferences.controller.js");
+  let codeSnippet = "Not found";
+  try {
+    const content = fs.readFileSync(controllerPath, 'utf8');
+    // Look for my specific helper function to confirm it exists
+    const hasHelper = content.includes("const buildReferenceCriteria =");
+    codeSnippet = content.slice(0, 500) + `\n\n... Has buildReferenceCriteria: ${hasHelper}`;
+  } catch (e) { codeSnippet = `Error: ${e.message}`; }
 
   res.json({
-    __dirname,
-    process_cwd: process.cwd(),
-    computed_public_path: publicPath,
-    public_exists: fs.existsSync(publicPath),
-    public_contents: publicListing,
-    root_contents: rootListing,
-    env: process.env.NODE_ENV
+    deploy_time: "2026-01-25 22:35",
+    has_build_helper: codeSnippet.includes("true"),
+    controller_snippet: codeSnippet,
+    env: process.env.NODE_ENV,
+    cwd: process.cwd()
   });
 });
 
