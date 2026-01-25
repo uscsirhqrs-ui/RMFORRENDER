@@ -176,7 +176,7 @@ function Header() {
     if (hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) || hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)) return "/users";
 
     if (hasPermission(FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER)) return "/references/local";
-    if (hasPermission(FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER)) return "/references/global?scope=inter-lab";
+    if (hasPermission(FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER)) return "/references/global";
 
     if (hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE)) return "/admin/references/local";
     if (hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES)) return "/admin/references/local";
@@ -237,13 +237,13 @@ function Header() {
 
   const navLinks = (!isAuthenticated || !isApproved || isProfileIncomplete) ? [] : [
     ...(hasOwnLabRef || hasInterLabRef ? [{
-      path: hasOwnLabRef ? "/references/local" : "/references/global?scope=inter-lab",
+      path: hasOwnLabRef ? "/references/local" : "/references/global",
       label: "References",
       icon: FileStack,
       hasDropdown: true,
       subItems: [
         ...(hasOwnLabRef ? [{ label: "Local References", path: "/references/local", icon: Building2 }] : []),
-        ...(hasInterLabRef ? [{ label: "Global References", path: "/references/global?scope=inter-lab", icon: Globe }] : []),
+        ...(hasInterLabRef ? [{ label: "Global References", path: "/references/global", icon: Globe }] : []),
         { label: "VIP References", path: "/references/vip", icon: Crown },
       ]
     }] : []),
