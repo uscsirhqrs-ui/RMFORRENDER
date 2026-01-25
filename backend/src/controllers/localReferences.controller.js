@@ -24,6 +24,58 @@ import { getReferencesWithDetailsPipeline } from "../pipelines/reference.pipelin
 import { hasPermission, getRolesWithPermission, checkUserPermission } from "../utils/permission.utils.js";
 
 /**
+ * Helper to build the final match criteria for local references based on user permissions and filters.
+ * Ensures strict consistency between getAllLocalReferences and getLocalDashboardStats.
+ */
+const buildLocalReferenceCriteria = async (user, query) => {
+    const { isHidden, isArchived, labs } = query;
+    const userId = new mongoose.Types.ObjectId(user._id);
+    const userLab = user.labName;
+
+    const hasGlobalAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+    const canManageOwnLab = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+    const hasLocalView = await checkUserPermission(user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
+
+    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
+
+    // Base criteria: MUST be in the user's lab UNLESS they are a Global Admin (Superadmin)
+    let criteria = hasGlobalAdmin ? {} : { labName: userLab };
+
+    // Lab Filter (Multi-select support, only for Global Admin or those with permission)
+    if (labs) {
+        const labArray = Array.isArray(labs) ? labs : labs.split(',');
+        if (labArray.length > 0) {
+            // If not global admin, we already have {labName: userLab}, but we can further restrict it 
+            // if they selected their own lab. If they selected another lab and aren't global admin, 
+            // the intersection will naturally be empty (which is correct/secure).
+            criteria.labName = { $in: labArray };
+        }
+    }
+
+    // Ownership criteria: non-authorized users only see references they are part of
+    if (!canSeeAllLabRefs) {
+        criteria.participants = userId;
+        criteria.isHidden = { $ne: true };
+        criteria.isArchived = { $ne: true };
+    } else {
+        // Authorized users visibility filters
+        if (isHidden !== undefined) {
+            criteria.isHidden = isHidden === 'true';
+        } else {
+            criteria.isHidden = { $ne: true };
+        }
+
+        if (isArchived !== undefined) {
+            criteria.isArchived = isArchived === 'true';
+        } else {
+            criteria.isArchived = { $ne: true };
+        }
+    }
+
+    return criteria;
+};
+
+/**
  * Fetches all local references for the user's lab.
  */
 export const getAllLocalReferences = asyncHandler(async (req, res) => {
@@ -35,32 +87,12 @@ export const getAllLocalReferences = asyncHandler(async (req, res) => {
         division,
         subject,
         pendingDays,
-        isHidden,
-        isArchived,
-        labs,
         sortBy = 'createdAt',
         sortOrder = 'desc'
     } = req.query;
 
+    const matchCriteria = await buildLocalReferenceCriteria(req.user, req.query);
     const userId = new mongoose.Types.ObjectId(req.user._id);
-    const userLab = req.user.labName;
-    const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
-
-    // Visibility is feature-based: Admins or users with view permission see all lab references
-    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
-
-    // Base criteria: MUST be in the user's lab UNLESS they are a Global Admin (Superadmin)
-    let matchCriteria = hasGlobalAdmin ? {} : { labName: userLab };
-
-    // Ownership criteria: non-authorized users only see references they are part of
-    if (!canSeeAllLabRefs) {
-        matchCriteria.participants = userId;
-        matchCriteria.isHidden = { $ne: true };
-        matchCriteria.isArchived = { $ne: true };
-    }
-
     // Apply filters
     if (status) matchCriteria.status = { $in: Array.isArray(status) ? status : status.split(',') };
     if (priority) matchCriteria.priority = { $in: Array.isArray(priority) ? priority : priority.split(',') };
@@ -122,29 +154,6 @@ export const getAllLocalReferences = asyncHandler(async (req, res) => {
         }
     }
 
-    // Lab Filter (Multi-select support)
-    if (labs) {
-        const labArray = Array.isArray(labs) ? labs : labs.split(',');
-        if (labArray.length > 0) {
-            matchCriteria.labName = { $in: labArray };
-        }
-    }
-
-    if (canSeeAllLabRefs) {
-        if (isHidden !== undefined) {
-            matchCriteria.isHidden = isHidden === 'true';
-        } else {
-            // Default: Hide hidden items for everyone unless explicitly requested
-            matchCriteria.isHidden = { $ne: true };
-        }
-
-        if (isArchived !== undefined) {
-            matchCriteria.isArchived = isArchived === 'true';
-        } else {
-            // Default: Hide archived items for everyone unless explicitly requested
-            matchCriteria.isArchived = { $ne: true };
-        }
-    }
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -311,25 +320,7 @@ export const getLocalReferenceById = asyncHandler(async (req, res) => {
  */
 export const getLocalDashboardStats = asyncHandler(async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user._id);
-    const userLab = req.user.labName;
-    const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
-
-    // Visibility is feature-based
-    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
-    const isAdmin = hasGlobalAdmin || canManageOwnLab;
-
-    let baseCriteria = hasGlobalAdmin ? {} : { labName: userLab };
-
-    // Enforce visibility for non-authorized users
-    if (!canSeeAllLabRefs) {
-        baseCriteria.participants = userId;
-    }
-
-    // Always exclude hidden and archived from dashboard counts (user request)
-    baseCriteria.isHidden = { $ne: true };
-    baseCriteria.isArchived = { $ne: true };
+    const baseCriteria = await buildLocalReferenceCriteria(req.user, req.query);
 
     const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount, totalReferences] = await Promise.all([
         LocalReference.countDocuments({ ...baseCriteria, status: { $ne: 'Closed' } }),

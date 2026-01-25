@@ -29,7 +29,60 @@ import { getReferencesWithDetailsPipeline } from "../pipelines/reference.pipelin
 import { SystemConfig } from "../models/systemConfig.model.js";
 
 /**
- * Fetches all references from the database.
+ * Helper to build the final match criteria for references based on user permissions and filters.
+ * Ensures strict consistency between getAllReferences, getDashboardStats and getFilters.
+ */
+const buildReferenceCriteria = async (user, query) => {
+  const { scope, isHidden, isArchived } = query;
+  const userId = new mongoose.Types.ObjectId(user._id);
+  const userLab = user.labName;
+
+  // 1. Permission Check
+  const hasGlobalAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
+  const canManageOwnLab = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
+  const hasGlobalRefAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
+  const hasGlobalRefView = await checkUserPermission(user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
+
+  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+  const canSeeAllLocalOwn = canManageOwnLab;
+
+  // 2. Ownership/Scope Base Criteria
+  let criteria = {};
+  if (canSeeAllGlobal) {
+    criteria = {};
+  } else if (canSeeAllLocalOwn) {
+    criteria = {
+      $or: [
+        { participants: userId },
+        { 'createdByDetails.labName': userLab },
+        { 'markedToDetails.labName': userLab }
+      ]
+    };
+  } else {
+    criteria = { participants: userId };
+  }
+
+  // 3. Visibility Filters (Hidden/Archived)
+  if (canSeeAllGlobal) {
+    if (isHidden !== undefined) criteria.isHidden = isHidden === 'true';
+    else criteria.isHidden = { $ne: true };
+
+    if (isArchived !== undefined) criteria.isArchived = isArchived === 'true';
+    else criteria.isArchived = { $ne: true };
+  } else {
+    criteria.isHidden = { $ne: true };
+    criteria.isArchived = { $ne: true };
+  }
+
+  // 4. Scope Filter (Inter-lab vs Local)
+  if (scope === 'lab') {
+    criteria.isInterLab = false;
+  } else if (scope === 'inter-lab') {
+    criteria.isInterLab = true;
+  }
+
+  return criteria;
+};
 
 /**
  * Fetches all references from the database.
@@ -48,53 +101,13 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
     division,
     subject,
     pendingDays,
-    isHidden,
-    isArchived,
-    scope,
-    labs,
     sortBy = 'createdAt',
     sortOrder = 'desc'
   } = req.query;
 
+  const baseCriteria = await buildReferenceCriteria(req.user, req.query);
   const userId = new mongoose.Types.ObjectId(req.user._id);
-  /* 
-   * ACCESS CONTROL LOGIC
-   * Split Config:
-   * - Manage Local References (all labs): Full access to everything (Superadmin)
-   * - Manage Local References(own lab): Full access ONLY if in same lab
-   * - Manage Global References: Access to inter-lab references
-   */
-  const userLab = req.user.labName;
-  const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-  const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-  const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
-  /* 
-   * NEW PERMISSION-BASED VISIBILITY LOGIC
-   * visibility is strictly feature-permission based.
-   */
-  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
-  const canSeeAllLocalOwn = canManageOwnLab;
-
-  let ownershipCriteria = {};
-
-  if (canSeeAllGlobal) {
-    // Managers of global refs see ALL inter-lab refs
-    ownershipCriteria = {};
-  } else if (canSeeAllLocalOwn) {
-    // Lab admins see all in their lab plus anything they are part of
-    ownershipCriteria = {
-      $or: [
-        { participants: userId },
-        { 'createdByDetails.labName': userLab },
-        { 'markedToDetails.labName': userLab }
-      ]
-    };
-  } else {
-    // Normal users only see what they participate in
-    ownershipCriteria = { participants: userId };
-  }
   let filterCriteria = {};
 
   // Status Filter
@@ -105,42 +118,6 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
   // Priority Filter
   if (priority) {
     filterCriteria.priority = { $in: Array.isArray(priority) ? priority : priority.split(',') };
-  }
-
-  // Visibility & Archival Filters (Admin only can explicitly filter, others see active by default)
-  if (canSeeAllGlobal) {
-    if (isHidden !== undefined) {
-      filterCriteria.isHidden = isHidden === 'true';
-    } else {
-      // Default: Hide hidden global references
-      filterCriteria.isHidden = { $ne: true };
-    }
-
-    if (isArchived !== undefined) {
-      filterCriteria.isArchived = isArchived === 'true';
-    } else {
-      // Default: Hide archived global references
-      filterCriteria.isArchived = { $ne: true };
-    }
-  } else {
-    // Normal users or Local Admins (in Global list) can't see hidden/archived global refs
-    filterCriteria.isHidden = { $ne: true };
-    filterCriteria.isArchived = { $ne: true };
-  }
-
-  // Scope Filter (Lab level vs Inter-lab)
-  if (scope === 'lab') {
-    filterCriteria.isInterLab = false;
-  } else if (scope === 'inter-lab') {
-    // SECURITY CHECK: Only roles with permission can access inter-lab (global) references list
-    // Also allow if they have "Manage Global References"
-    const canAccessGlobal = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
-    const canManageGlobal = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-
-    if (!canAccessGlobal && !canManageGlobal) {
-      return next(new ApiErrors('Forbidden: You do not have permission to view global references.', 403));
-    }
-    filterCriteria.isInterLab = true;
   }
 
   // Division (Denormalized)
@@ -206,7 +183,7 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
   const labFilter = filterCriteria.$or ? { $or: filterCriteria.$or } : null;
   delete filterCriteria.$or;
 
-  const finalMatch = { ...ownershipCriteria, ...filterCriteria };
+  const finalMatch = { ...baseCriteria, ...filterCriteria };
   const andConditions = [];
   if (searchFilter) andConditions.push(searchFilter);
   if (labFilter) andConditions.push(labFilter);
@@ -214,7 +191,6 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
   if (andConditions.length > 0) {
     finalMatch.$and = andConditions;
   }
-
 
   const total = await GlobalReference.countDocuments(finalMatch);
   const pipeline = getReferencesWithDetailsPipeline(finalMatch);
@@ -226,8 +202,6 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
   // Use countDocuments on the final matchCriteria (indexed)
   const totalReferences = total;
 
-  // Directly run the aggregation for necessary field mapping or use find()
-  // const pipeline = getReferencesWithDetailsPipeline(matchCriteria); // This line was already there, but the instruction implies adding it again. I'll assume the user meant to keep the existing one and just rename totalReferences.
   pipeline.push({ $sort: { [sortBy]: sortOrder === 'asc' ? 1 : -1 } });
   pipeline.push({ $skip: skip });
   pipeline.push({ $limit: limit });
@@ -246,51 +220,8 @@ export const getAllReferences = asyncHandler(async (req, res, next) => {
 });
 
 export const getDashboardStats = asyncHandler(async (req, res) => {
-  const { scope } = req.query;
   const userId = new mongoose.Types.ObjectId(req.user._id);
-  const userLab = req.user.labName;
-
-  /* 
-   * ACCESS CONTROL LOGIC
-   * visibility is strictly feature-permission based.
-   * Matches logic in getAllReferences.
-   */
-  const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-  const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-  const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
-
-  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
-
-  let baseCriteria = {};
-
-  if (canSeeAllGlobal) {
-    // Users with global feature permissions see ALL inter-lab refs
-    baseCriteria = {};
-  } else if (canManageOwnLab) {
-    // Lab admins see all in their lab plus anything they are part of
-    baseCriteria = {
-      $or: [
-        { participants: userId },
-        { 'createdByDetails.labName': userLab },
-        { 'markedToDetails.labName': userLab }
-      ]
-    };
-  } else {
-    // Normal users only see what they participate in
-    baseCriteria = { participants: userId };
-  }
-
-  // Always exclude hidden and archived from dashboard counts unless explicitly requested
-  baseCriteria.isHidden = { $ne: true };
-  baseCriteria.isArchived = { $ne: true };
-
-  // Scope Filter (Lab level vs Inter-lab)
-  if (scope === 'lab') {
-    baseCriteria.isInterLab = false;
-  } else if (scope === 'inter-lab') {
-    baseCriteria.isInterLab = true;
-  }
+  const baseCriteria = await buildReferenceCriteria(req.user, req.query);
 
   const [openCount, highPriorityCount, pending7DaysCount, closedThisMonthCount, markedToUserCount, pendingInDivisionCount, totalReferences] = await Promise.all([
     GlobalReference.countDocuments({ ...baseCriteria, status: { $ne: 'Closed' } }),
@@ -674,7 +605,7 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
   res.status(200).json(new ApiResponse(200, 'Reference fetched successfully', { reference, movements, type: onModel }));
 });
 /**
-
+ 
 /**
  * Helper to validate remarks against word limit.
  * Fetches limit from SystemConfig (defaulting to 150).
