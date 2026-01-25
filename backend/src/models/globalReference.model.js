@@ -107,10 +107,6 @@ const GlobalReferenceSchema = new Schema(
       labName: String,
       designation: String,
     }],
-    isInterLab: {
-      type: Boolean,
-      default: true,
-    },
   },
   {
     timestamps: true,

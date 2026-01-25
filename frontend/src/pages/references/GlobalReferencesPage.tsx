@@ -438,7 +438,7 @@ function GlobalReferencesPage() {
                     <div className="flex flex-1 items-center gap-4 md:gap-6 w-full">
                         <h1 className="text-xl md:text-2xl font-semibold text-gray-900 tracking-tight font-heading flex items-center gap-2 whitespace-nowrap mb-0">
                             <Globe className="w-6 h-6 text-indigo-600" />
-                            Global References---abcd
+                            Global References
                         </h1>
                     </div>
                     <div className="flex items-center gap-3">

@@ -110,11 +110,8 @@
 
 Added Users:
 
-CSIR-HQRS: hquser1@csir.res.in, hquser2@csir.res.in, hquser3@csir.res.in
-CSIR-AMPRI: ampriuser@csir.res.in
-CSIR-CBRI: cbriuser@csir.res.in
-CSIR-CCMB: ccmbuser@csir.res.in
+CLabs: CSIR-CCMB, CSIR-NCL, CSIR-IICT, CSIR-CDRI (2 users each).
 Credentials:
-
-Password: Test@123
+Emails: test.ccmb.1@csir.res.in, test.ncl.1@csir.res.in, etc.
+Password: Test@123 (for all seeded users).
 Status: Pre-approved and active

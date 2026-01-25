@@ -75,11 +75,7 @@ const buildReferenceCriteria = async (user, query) => {
   }
 
   // 4. Scope Filter (Inter-lab vs Local)
-  if (scope === 'lab') {
-    criteria.isInterLab = false;
-  } else if (scope === 'inter-lab') {
-    criteria.isInterLab = true;
-  }
+  // No longer using isInterLab flag as refType/collection determines global scope.
 
   return criteria;
 };
@@ -374,7 +370,6 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     // Global Pipeline
     if (!scope || scope === 'inter-lab') {
       const match = {}; // Admin sees all
-      if (scope === 'inter-lab') match.isInterLab = true;
       applyVisibilityFilters(match); // Apply filters
       promises.push(aggregateFilters(GlobalReference, match));
     } else {
@@ -465,7 +460,6 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
       }
 
       // Explicitly for inter-lab scope, ensure it matches global refs logic
-      if (scope === 'inter-lab') match.isInterLab = true;
 
       applyVisibilityFilters(match); // Apply filters to user scope
 
@@ -702,8 +696,7 @@ export const createReference = asyncHandler(async (req, res, next) => {
       email: markedToUser.email,
       labName: markedToUser.labName,
       designation: markedToUser.designation
-    }],
-    isInterLab: req.user.labName !== markedToUser.labName
+    }]
   });
   await newReference.save();
 
@@ -896,11 +889,6 @@ export const updateReference = asyncHandler(async (req, res, next) => {
           reference.participants.push(u._id);
         }
       });
-
-      // Update isInterLab if moving to a different lab than creator's lab
-      if (nextUsers.some(u => u.labName !== reference.createdByDetails.labName)) {
-        reference.isInterLab = true;
-      }
     }
   }
 
@@ -1146,11 +1134,6 @@ export const bulkUpdateReferences = asyncHandler(async (req, res, next) => {
         // Add to participants
         if (!ref.participants.some(p => p.toString() === assignee._id.toString())) {
           ref.participants.push(assignee._id);
-        }
-
-        // Check inter-lab status
-        if (ref.createdByDetails && ref.createdByDetails.labName !== assignee.labName) {
-          ref.isInterLab = true;
         }
 
         // Update latest remarks

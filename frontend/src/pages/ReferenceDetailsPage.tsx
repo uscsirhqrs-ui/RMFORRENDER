@@ -291,9 +291,9 @@ function ReferenceDetailsPage() {
     const workflowUsers = getWorkflowUsers();
 
     return (
-        <div className="container mx-auto p-4">
+        <div className="w-full px-3 sm:px-5 lg:px-7 py-4">
             {/* Back button and Print Controls */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 px-2 sm:px-6">
                 <button
                     onClick={() => {
                         navigate(-1);

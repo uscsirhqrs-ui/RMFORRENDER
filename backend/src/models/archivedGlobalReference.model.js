@@ -103,10 +103,6 @@ const ArchivedGlobalReferenceSchema = new Schema(
             email: String,
             labName: String,
         }],
-        isInterLab: {
-            type: Boolean,
-            default: true,
-        },
         // Meta data for archiving
         archivedAt: {
             type: Date,
