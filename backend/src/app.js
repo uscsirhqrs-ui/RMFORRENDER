@@ -13,6 +13,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 import "./jobs/retention.job.js"; // Initialize cleanup jobs
 
 console.log("----------------------------------------");
