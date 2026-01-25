@@ -13,7 +13,6 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
-import mongoose from "mongoose";
 import "./jobs/retention.job.js"; // Initialize cleanup jobs
 
 console.log("----------------------------------------");
@@ -178,55 +177,6 @@ if (!fs.existsSync(tempDir)) {
 }
 
 app.use(express.static(publicDir));
-
-// DEBUG ROUTE: Check file system and code content for verification on Render
-app.get('/api/v1/debug/verify', (req, res) => {
-  const controllerPath = path.join(__dirname, "./controllers/globalReferences.controller.js");
-  let codeSnippet = "Not found";
-  try {
-    const content = fs.readFileSync(controllerPath, 'utf8');
-    // Look for my specific helper function to confirm it exists
-    const hasHelper = content.includes("const buildReferenceCriteria =");
-    codeSnippet = content.slice(0, 500) + `\n\n... Has buildReferenceCriteria: ${hasHelper}`;
-  } catch (e) { codeSnippet = `Error: ${e.message}`; }
-
-  res.json({
-    deploy_time: "2026-01-25 22:35",
-    has_build_helper: codeSnippet.includes("true"),
-    controller_snippet: codeSnippet,
-    env: process.env.NODE_ENV,
-    cwd: process.cwd()
-  });
-});
-
-// TEMPORARY: Data fix endpoint for users without shell access on Render
-app.get('/api/v1/debug/fix-data', async (req, res) => {
-  try {
-    const globalColl = mongoose.connection.collection('globalreferences');
-    const localColl = mongoose.connection.collection('localreferences');
-
-    const globalRes = await globalColl.updateMany(
-      { $or: [{ isInterLab: { $exists: false } }, { isInterLab: false }] },
-      { $set: { isInterLab: true } }
-    );
-
-    const localRes = await localColl.updateMany(
-      { $or: [{ isInterLab: { $exists: false } }, { isInterLab: true }] },
-      { $set: { isInterLab: false } }
-    );
-
-    res.json({
-      success: true,
-      message: "Data reconciliation complete",
-      global_updated: globalRes.modifiedCount,
-      local_updated: localRes.modifiedCount,
-      note: "All Global references set to isInterLab: true, all Local references set to isInterLab: false."
-    });
-  } catch (err) {
-    console.error("Data fix failed:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
 
 // Serve React Frontend for any unknown routes (SPA)

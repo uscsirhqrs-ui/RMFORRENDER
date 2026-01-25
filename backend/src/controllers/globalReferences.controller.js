@@ -248,15 +248,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     closedThisMonthCount,
     markedToUserCount,
     pendingInDivisionCount,
-    totalReferences,
-    _debug: {
-      userId,
-      userRole: req.user.role,
-      userLab: req.user.labName,
-      userDivision: req.user.division,
-      baseCriteria,
-      query: req.query
-    }
+    totalReferences
   }));
 });
 
