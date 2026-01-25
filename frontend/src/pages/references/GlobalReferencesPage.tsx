@@ -361,76 +361,6 @@ function GlobalReferencesPage() {
     return (
         <>
             <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-500">
-                {/* Status Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
-                    <StatusCard
-                        info={{
-                            title: "All Open References",
-                            refcount: statsLoading ? undefined : stats.openCount,
-                            icon: <FolderOpen className="w-5 h-5 text-blue-600" />,
-                        }}
-                        onClick={() => handleStatusCardClick('open')}
-                        isActive={activeCard === 'open'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.openCount > 0 ? "Total active references" : "No active references"}
-                    />
-                    <StatusCard
-                        info={{
-                            title: "Pending with me",
-                            refcount: statsLoading ? undefined : stats.markedToUserCount,
-                            icon: <Flag className="w-5 h-5 text-red-600 animate-bounce" fill="currentColor" />,
-                        }}
-                        onClick={() => handleStatusCardClick('markedToMe')}
-                        isActive={activeCard === 'markedToMe'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.markedToUserCount > 0 ? "Pending with me" : "No pending references"}
-                    />
-                    <StatusCard
-                        info={{
-                            title: "Pending in My Div",
-                            refcount: statsLoading ? undefined : stats.pendingInDivisionCount,
-                            icon: <FolderOpen className="w-5 h-5 text-indigo-600" />,
-                        }}
-                        onClick={() => handleStatusCardClick('pendingDivision')}
-                        isActive={activeCard === 'pendingDivision'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.pendingInDivisionCount > 0 ? "Pending in my division" : "No pending references"}
-                    />
-                    <StatusCard
-                        info={{
-                            title: "High Priority",
-                            refcount: statsLoading ? undefined : stats.highPriorityCount,
-                            icon: <AlertCircle className="w-5 h-5 text-rose-600" />,
-                        }}
-                        onClick={() => handleStatusCardClick('high')}
-                        isActive={activeCard === 'high'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.highPriorityCount > 0 ? "Currently active references" : "No active references"}
-                    />
-                    <StatusCard
-                        info={{
-                            title: "Pending > 7 Days",
-                            refcount: statsLoading ? undefined : stats.pending7DaysCount,
-                            icon: <Clock className="w-5 h-5 text-amber-600" />,
-                        }}
-                        onClick={() => handleStatusCardClick('pending')}
-                        isActive={activeCard === 'pending'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.pending7DaysCount > 0 ? " Pending for more than 7 days" : "No pending references"}
-                    />
-                    <StatusCard
-                        info={{
-                            title: "Closed This Month",
-                            refcount: statsLoading ? undefined : stats.closedThisMonthCount,
-                            icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
-                        }}
-                        onClick={() => handleStatusCardClick('closed')}
-                        isActive={activeCard === 'closed'}
-                        loading={statsLoading}
-                        additionalInfo={statsLoading ? undefined : stats.closedThisMonthCount > 0 ? "Closed this month" : "No closed references"}
-                    />
-                </div>
-
                 {/* Page Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 md:gap-6 pb-2">
                     <div className="flex flex-1 items-center gap-4 md:gap-6 w-full">
@@ -537,6 +467,76 @@ function GlobalReferencesPage() {
                             Total: {totalReferences} of {stats.totalReferences}
                         </span>}
                     </p>
+                </div>
+
+                {/* Status Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
+                    <StatusCard
+                        info={{
+                            title: "All Open References",
+                            refcount: statsLoading ? undefined : stats.openCount,
+                            icon: <FolderOpen className="w-5 h-5 text-blue-600" />,
+                        }}
+                        onClick={() => handleStatusCardClick('open')}
+                        isActive={activeCard === 'open'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.openCount > 0 ? "Total active references" : "No active references"}
+                    />
+                    <StatusCard
+                        info={{
+                            title: "Pending with me",
+                            refcount: statsLoading ? undefined : stats.markedToUserCount,
+                            icon: <Flag className="w-5 h-5 text-red-600 animate-bounce" fill="currentColor" />,
+                        }}
+                        onClick={() => handleStatusCardClick('markedToMe')}
+                        isActive={activeCard === 'markedToMe'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.markedToUserCount > 0 ? "Pending with me" : "No pending references"}
+                    />
+                    <StatusCard
+                        info={{
+                            title: "Pending in My Div",
+                            refcount: statsLoading ? undefined : stats.pendingInDivisionCount,
+                            icon: <FolderOpen className="w-5 h-5 text-indigo-600" />,
+                        }}
+                        onClick={() => handleStatusCardClick('pendingDivision')}
+                        isActive={activeCard === 'pendingDivision'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.pendingInDivisionCount > 0 ? "Pending in my division" : "No pending references"}
+                    />
+                    <StatusCard
+                        info={{
+                            title: "High Priority",
+                            refcount: statsLoading ? undefined : stats.highPriorityCount,
+                            icon: <AlertCircle className="w-5 h-5 text-rose-600" />,
+                        }}
+                        onClick={() => handleStatusCardClick('high')}
+                        isActive={activeCard === 'high'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.highPriorityCount > 0 ? "Currently active references" : "No active references"}
+                    />
+                    <StatusCard
+                        info={{
+                            title: "Pending > 7 Days",
+                            refcount: statsLoading ? undefined : stats.pending7DaysCount,
+                            icon: <Clock className="w-5 h-5 text-amber-600" />,
+                        }}
+                        onClick={() => handleStatusCardClick('pending')}
+                        isActive={activeCard === 'pending'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.pending7DaysCount > 0 ? " Pending for more than 7 days" : "No pending references"}
+                    />
+                    <StatusCard
+                        info={{
+                            title: "Closed This Month",
+                            refcount: statsLoading ? undefined : stats.closedThisMonthCount,
+                            icon: <CheckCircle2 className="w-5 h-5 text-emerald-600" />,
+                        }}
+                        onClick={() => handleStatusCardClick('closed')}
+                        isActive={activeCard === 'closed'}
+                        loading={statsLoading}
+                        additionalInfo={statsLoading ? undefined : stats.closedThisMonthCount > 0 ? "Closed this month" : "No closed references"}
+                    />
                 </div>
 
                 {/* Filters Bar */}
