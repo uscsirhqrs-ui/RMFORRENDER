@@ -116,8 +116,17 @@ const userSchema = new Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
+
+userSchema.virtual('initials').get(function () {
+  if (!this.fullName) return 'U';
+  const names = this.fullName.split(' ');
+  const initials = names.map(n => n[0]).join('').toUpperCase();
+  return initials.slice(0, 2);
+});
 
 userSchema.pre('save', async function (next) {
   const user = this;
