@@ -25,6 +25,8 @@ const handleResponse = async (response: Response) => {
 
     const data = await response.json();
 
+    console.log("Response global stats handleResponse: ", data);
+
     if (!response.ok) {
         throw new Error(data.message || `API Error: ${response.statusText}`);
     }
@@ -37,6 +39,7 @@ export const getDashboardStats = async () => {
     console.log("Fetching dashboard stats...");
     const url = new URL(`${API_BASE_URL}/references/global/getDashboardStats`);
     const response = await fetch(url.toString(), { credentials: 'include' });
+    console.log("Response global stats: ", response);
     return handleResponse(response);
 };
 

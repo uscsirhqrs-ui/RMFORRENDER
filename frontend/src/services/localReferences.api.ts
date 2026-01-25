@@ -53,11 +53,13 @@ export const createLocalReference = async (referenceData: any): Promise<ApiRespo
 
 export const getLocalReferenceById = async (id: string): Promise<ApiResponse> => {
     const response = await api.get(`/${id}`);
+
     return response.data;
 };
 
 export const getLocalDashboardStats = async (): Promise<ApiResponse> => {
     const response = await api.get('/stats');
+    console.log("Response local stats: ", response);
     return response.data;
 };
 
