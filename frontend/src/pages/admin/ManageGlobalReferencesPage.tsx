@@ -81,7 +81,7 @@ const ManageGlobalReferencesPage = () => {
 
     const fetchFilters = useCallback(async () => {
         try {
-            const res = await getReferenceFilters('inter-lab');
+            const res = await getReferenceFilters();
             if (res.success && res.data) {
                 if (res.data.statuses) setAvailableStatuses(res.data.statuses);
                 if (res.data.priorities) setAvailablePriorities(res.data.priorities);
@@ -98,7 +98,6 @@ const ManageGlobalReferencesPage = () => {
                 subject: subjectFilter,
                 status: statusFilter,
                 priority: priorityFilter,
-                scope: 'inter-lab'
             };
 
             if (visibilityFilter === 'hidden') filters.isHidden = 'true';

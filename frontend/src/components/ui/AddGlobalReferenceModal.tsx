@@ -26,11 +26,9 @@ interface AddReferenceModalProps {
     onClose: () => void;
     /** Callback function triggered after a successful reference addition (e.g., to refresh the list) */
     onSuccess: () => void;
-    /** Optional default scope for new references ('lab' or 'inter-lab') */
-    defaultScope?: string;
 }
 
-const AddGlobalReferenceModal: React.FC<AddReferenceModalProps> = ({ isOpen, onClose, onSuccess, defaultScope }) => {
+const AddGlobalReferenceModal: React.FC<AddReferenceModalProps> = ({ isOpen, onClose, onSuccess }) => {
     const { user: currentUser, permissions } = useAuth(); // Get current user and permissions
     const [subject, setSubject] = useState('');
     const [remarks, setRemarks] = useState('');
@@ -68,16 +66,7 @@ const AddGlobalReferenceModal: React.FC<AddReferenceModalProps> = ({ isOpen, onC
 
     // 3. Filter eligible users by the selected lab
     const filteredUsers = selectedLab
-        ? eligibleUsers.filter(u => {
-            if (u.labName !== selectedLab) return false;
-            // For Global References (inter-lab), only show Users with permission
-            if (defaultScope === 'inter-lab') {
-                const interLabPermission = permissions.find(p => p.feature === FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
-                const allowedRoles = interLabPermission?.roles || [];
-                return u.availableRoles?.some((role: string) => allowedRoles.includes(role));
-            }
-            return true;
-        })
+        ? eligibleUsers.filter(u => u.labName === selectedLab)
         : [];
 
     useEffect(() => {
@@ -189,8 +178,7 @@ const AddGlobalReferenceModal: React.FC<AddReferenceModalProps> = ({ isOpen, onC
                 deliveryMode,
                 deliveryDetails,
                 sentAt: sentDate,
-                tags: [],
-                scope: defaultScope
+                tags: []
             });
 
             if (response.success) {

@@ -155,7 +155,7 @@ function GlobalReferencesPage() {
     const fetchStats = async () => {
         try {
             setStatsLoading(true);
-            const res = await getDashboardStats(scopeFilter);
+            const res = await getDashboardStats();
             if (res.success && res.data) {
                 setStats(res.data);
             }
@@ -177,7 +177,6 @@ function GlobalReferencesPage() {
                 division: selectedDivisions,
                 subject: subjectFilter,
                 pendingDays: pendingDaysFilter,
-                scope: scopeFilter,
             };
 
             const sort = sortConfig ? {
@@ -1035,7 +1034,6 @@ function GlobalReferencesPage() {
                     fetchStats();
                     setSelectedIds(new Set());
                 }}
-                defaultScope="inter-lab"
             />
 
             <BulkUpdateGlobalReferenceModal

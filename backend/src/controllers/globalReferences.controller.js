@@ -638,12 +638,12 @@ const getUserDisplayName = (user) => {
  * @returns {Promise<void>} Sends a JSON response with the created reference
  */
 export const createReference = asyncHandler(async (req, res, next) => {
-  const { subject, remarks, status, priority, markedTo, eofficeNo, scope, deliveryMode, deliveryDetails, sentAt } = req.body;
+  const { subject, remarks, status, priority, markedTo, eofficeNo, deliveryMode, deliveryDetails, sentAt } = req.body;
 
   const canCreateGlobal = await hasPermission(req.user.role, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
-  // SECURITY CHECK: Only roles with permission can create inter-lab (global) references
-  if (scope === 'inter-lab' && !canCreateGlobal) {
+  // SECURITY CHECK: Only roles with permission can create references in this (Global) module
+  if (!canCreateGlobal) {
     return next(new ApiErrors('Forbidden: You do not have permission to create global references.', 403));
   }
 
