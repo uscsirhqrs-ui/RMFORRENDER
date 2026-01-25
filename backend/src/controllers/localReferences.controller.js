@@ -32,11 +32,12 @@ const buildLocalReferenceCriteria = async (user, query) => {
     const userId = new mongoose.Types.ObjectId(user._id);
     const userLab = user.labName;
 
+    const isSystemAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     const hasGlobalAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const canManageOwnLab = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const hasLocalView = await checkUserPermission(user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
 
-    const canSeeAllLabRefs = hasGlobalAdmin || canManageOwnLab || hasLocalView;
+    // ONLY Global Admins and System Admins have unrestricted view across labs/office.
+    // Local Viewers and Local Managers (own office) are restricted to participation ONLY.
+    const canSeeAllLabRefs = isSystemAdmin || hasGlobalAdmin;
 
     // Base criteria: MUST be in the user's lab UNLESS they are a Global Admin (Superadmin)
     let criteria = hasGlobalAdmin ? {} : { labName: userLab };
@@ -287,9 +288,9 @@ export const getLocalReferenceById = asyncHandler(async (req, res) => {
         throw new ApiErrors('Local reference not found', 404);
     }
 
+    const isSystemAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const hasLocalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const isAdmin = hasGlobalAdmin || hasLocalAdmin;
+    const isAdmin = isSystemAdmin || hasGlobalAdmin;
 
     // Access Check: Same lab OR Global Admin
     if (!hasGlobalAdmin && reference.labName !== req.user.labName) {
@@ -492,10 +493,13 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
                     labName: targetUser.labName
                 }];
 
-                // Add to participants if not present
-                if (!ref.participants.some(p => p.toString() === targetUser._id.toString())) {
-                    ref.participants.push(targetUser._id);
-                }
+                // Add to participants (Target and Actor)
+                const participantsToAdd = [targetUser._id, req.user._id];
+                participantsToAdd.forEach(id => {
+                    if (!ref.participants.some(p => p.toString() === id.toString())) {
+                        ref.participants.push(id);
+                    }
+                });
 
                 // Update latest remarks
                 ref.remarks = finalRemarks;
@@ -675,9 +679,11 @@ export const updateLocalReference = asyncHandler(async (req, res) => {
         designation: u.designation
     }));
 
-    nextUsers.forEach(u => {
-        if (!reference.participants.some(p => p.toString() === u._id.toString())) {
-            reference.participants.push(u._id);
+    // Add to participants (Both target and actor)
+    const participantsToAdd = [...nextUsers.map(u => u._id), req.user._id];
+    participantsToAdd.forEach(id => {
+        if (!reference.participants.some(p => p.toString() === id.toString())) {
+            reference.participants.push(id);
         }
     });
 
@@ -786,12 +792,12 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
     const userId = new mongoose.Types.ObjectId(req.user._id);
     const userLab = req.user.labName;
 
-    // Use role-inclusive helper to check admin status
+    const isSystemAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-    const canManageOwnLab = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
-    const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
 
-    const canSeeAllFilters = hasGlobalAdmin || canManageOwnLab || hasLocalView;
+    // ONLY Global Admins and System Admins have unrestricted view for filters.
+    // Local Managers and Viewers are restricted to participation.
+    const canSeeAllFilters = isSystemAdmin || hasGlobalAdmin;
 
     console.log(`[LOCAL_FILTERS] User: ${req.user.email}, Lab: ${userLab}, canSeeAllFilters: ${canSeeAllFilters}`);
 

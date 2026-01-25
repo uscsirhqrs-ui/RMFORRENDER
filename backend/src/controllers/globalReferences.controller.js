@@ -41,9 +41,8 @@ const buildReferenceCriteria = async (user, query) => {
   const hasGlobalAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
   const canManageOwnLab = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
   const hasGlobalRefAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-  const hasGlobalRefView = await checkUserPermission(user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
-
-  const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+  const isSystemAdmin = await checkUserPermission(user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const canSeeAllGlobal = isSystemAdmin || hasGlobalAdmin || hasGlobalRefAdmin;
   const canSeeAllLocalOwn = canManageOwnLab;
 
   // 2. Ownership/Scope Base Criteria
@@ -261,11 +260,12 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
   const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
   const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
+  const isSystemAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
   // Admin or user with global view permission can see all global filters
-  const canSeeAllGlobalFilters = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+  const canSeeAllGlobalFilters = isSystemAdmin || hasGlobalAdmin || hasGlobalRefAdmin;
   // Local admin (Manage own lab) or View own lab permission can see all local filters
   const hasLocalView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_OWN_OFFICE_SENDER);
-  const canSeeAllLocalFilters = canManageOwnLab || hasLocalView;
+  const canSeeAllLocalFilters = isSystemAdmin || hasGlobalAdmin;
 
   // We'll branch later, but for the "isAdmin" block (which uses facet search), let's use canSeeAllGlobalFilters
   const useFacetSearch = canSeeAllGlobalFilters || hasGlobalAdmin; // Superadmins always use facet
@@ -563,11 +563,11 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
     const createdById = reference.createdBy && reference.createdBy._id ? reference.createdBy._id.toString() : reference.createdBy?.toString();
     const markedToId = reference.markedTo && reference.markedTo._id ? reference.markedTo._id.toString() : reference.markedTo?.toString();
 
+    const isSystemAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     const hasGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
     const hasGlobalRefAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-    const hasGlobalRefView = await checkUserPermission(req.user, FeatureCodes.FEATURE_VIEW_INTER_OFFICE_SENDER);
 
-    const canSeeAllGlobal = hasGlobalAdmin || hasGlobalRefAdmin || hasGlobalRefView;
+    const canSeeAllGlobal = isSystemAdmin || hasGlobalAdmin || hasGlobalRefAdmin;
 
     // Robust markedTo check (handle array and objects)
     const isMarkedTo = Array.isArray(reference.markedTo)
@@ -883,10 +883,11 @@ export const updateReference = asyncHandler(async (req, res, next) => {
         labName: u.labName
       }));
 
-      // Add to participants if not already there
-      nextUsers.forEach(u => {
-        if (!reference.participants.some(p => p.toString() === u._id.toString())) {
-          reference.participants.push(u._id);
+      // Add to participants (Both target and actor)
+      const participantsToAdd = [...nextUsers.map(u => u._id), req.user._id];
+      participantsToAdd.forEach(id => {
+        if (!reference.participants.some(p => p.toString() === id.toString())) {
+          reference.participants.push(id);
         }
       });
     }
@@ -1131,10 +1132,13 @@ export const bulkUpdateReferences = asyncHandler(async (req, res, next) => {
           designation: assignee.designation
         }];
 
-        // Add to participants
-        if (!ref.participants.some(p => p.toString() === assignee._id.toString())) {
-          ref.participants.push(assignee._id);
-        }
+        // Add to participants (Target and Actor)
+        const participantsToAdd = [assignee._id, req.user._id];
+        participantsToAdd.forEach(id => {
+          if (!ref.participants.some(p => p.toString() === id.toString())) {
+            ref.participants.push(id);
+          }
+        });
 
         // Update latest remarks
         ref.remarks = finalRemarks;

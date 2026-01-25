@@ -397,146 +397,7 @@ function ReferenceDetailsPage() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column: Movement Timeline */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-lg shadow-sm p-6">
-                        {/* Header */}
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
-                            <div>
-                                <h2 className="text-xl font-bold text-gray-900 mb-1 animate-text-gradient">Movement Flow</h2>
-                                <p className="text-gray-500 text-sm">Chronological history of the reference.</p>
-                            </div>
-                            {/* Reminder / Reopen Request Button */}
-                            {(isAdmin || (currentUser?._id && movements?.some(m =>
-                                (m.markedTo?._id === currentUser._id) || (m.performedBy?._id === currentUser._id)
-                            )) || (currentUser?._id && reference.createdBy && (typeof reference.createdBy === 'object' ? reference.createdBy._id === currentUser._id : reference.createdBy === currentUser._id))) && (
-                                    <div className="w-full sm:w-auto">
-                                        {reference.status === 'Closed' ? (
-                                            /* HIDE BUTTON if Admin OR if Request is already Pending */
-                                            !isAdmin && !reference.reopenRequest && (
-                                                <Button
-                                                    label="Reopening Request"
-                                                    className="w-full sm:w-auto px-6 py-2.5 bg-orange-600 text-white hover:bg-orange-700 shadow-sm text-sm font-bold uppercase tracking-wider"
-                                                    onClick={() => setIsReopenModalOpen(true)}
-                                                />
-                                            )
-                                        ) : (
-                                            <Button
-                                                label="Issue Reminder / Seek Inputs"
-                                                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm text-sm font-bold uppercase tracking-wider"
-                                                onClick={() => setIsReminderModalOpen(true)}
-                                            />
-                                        )}
-                                    </div>
-                                )}
-                        </div>
-
-                        <div className="relative overflow-visible">
-                            {/* Vertical Line */}
-                            <div className="absolute left-6 sm:left-6 top-0 bottom-0 w-0.5 bg-gray-100 italic"></div>
-
-                            <div className="space-y-8">
-                                {movements && movements.map((movement) => (
-                                    <div key={movement._id} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6 group">
-                                        {/* Status Circle */}
-                                        <div className="flex-none flex sm:block items-center gap-3">
-                                            <div
-                                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-4 border-white ring-1 ring-gray-100"
-                                                style={{ backgroundColor: '#a855f7' }}
-                                            >
-                                                {((movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))?.fullName?.substring(0, 2).toUpperCase()) || "NA"}
-                                            </div>
-                                            {/* Date for mobile - beside avatar */}
-                                            <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                                                {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                            </span>
-                                        </div>
-
-                                        {/* Content */}
-                                        <div className="grow">
-                                            <div className="flex justify-between items-start mb-1">
-                                                <div>
-                                                    <h3 className="font-semibold text-gray-900 flex flex-wrap">
-                                                        <button
-                                                            onClick={() => openUserProfile(getUserId(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)))}
-                                                            className="hover:text-indigo-600 hover:underline text-left font-semibold wrap-break-word"
-                                                        >
-                                                            {getUserDisplayName(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
-                                                        </button>
-                                                    </h3>
-                                                    <div className="inline-flex items-center gap-1 mt-1">
-                                                        <span className="w-2 h-2 rounded-full border border-red-500 flex items-center justify-center">
-                                                            <span className="w-1 h-1 rounded-full bg-red-500"></span>
-                                                        </span>
-                                                        <span className="text-sm text-gray-600 font-semibold">{movement.statusOnMovement}</span>
-                                                    </div>
-                                                    {movement.performedBy && (
-                                                        <div className="text-xs text-gray-500 mt-2 mb-1">
-                                                            <span>Next marked to: </span>
-                                                            {Array.isArray(movement.markedTo) && movement.markedTo.length > 1 ? (
-                                                                <div className="inline-block relative">
-                                                                    <button
-                                                                        onClick={() => toggleMovementAdminList(movement._id)}
-                                                                        className="text-indigo-600 font-bold hover:underline flex items-center gap-1"
-                                                                    >
-                                                                        All Relevant Administrators ({movement.markedTo.length})
-                                                                        {currentUser?._id && Array.isArray(movement.markedTo) && movement.markedTo.some(m => String(getUserId(m)) === String(currentUser._id)) && (
-                                                                            <Flag className="w-2.5 h-2.5 text-red-500 animate-bounce" fill="currentColor" />
-                                                                        )}
-                                                                    </button>
-                                                                    {expandedMovements[movement._id] && (
-                                                                        <div className="absolute z-10 left-0 mt-2 p-3 bg-white border border-gray-200 rounded-lg shadow-xl min-w-[250px] max-h-[200px] overflow-y-auto">
-                                                                            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2 border-b pb-1">Assigned Admins</p>
-                                                                            <div className="space-y-1.5">
-                                                                                {movement.markedTo.map((m: any, idx: number) => (
-                                                                                    <div key={m._id || idx} className="flex flex-col">
-                                                                                        <button
-                                                                                            onClick={() => openUserProfile(getUserId(m))}
-                                                                                            className="text-xs text-indigo-600 hover:underline text-left font-medium"
-                                                                                        >
-                                                                                            {m.fullName || "Unknown Admin"}
-                                                                                        </button>
-                                                                                        <span className="text-[10px] text-gray-400 italic">
-                                                                                            {m.designation || "Admin"} ({m.labName || "CSIR"})
-                                                                                        </span>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    onClick={() => openUserProfile(getUserId(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
-                                                                    className="hover:text-indigo-600 hover:underline text-left text-indigo-600 font-medium"
-                                                                >
-                                                                    {getUserDisplayName(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <span className="text-xs text-gray-500">
-                                                    {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                </span>
-                                            </div>
-
-                                            <div className="bg-gray-50 rounded-md p-3 mt-2 border border-gray-100">
-                                                <p className="text-gray-700 text-sm">{movement.remarks || "No remarks provided."}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-
-                                {(!movements || movements.length === 0) && (
-                                    <div className="pl-16 text-gray-500 italic">No movements recorded yet.</div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Right Column: Reference Details Card */}
+                {/* Left Column: Reference Details Card */}
                 <div className="lg:col-span-1">
                     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6 lg:sticky lg:top-6">
                         {/* Details Header - Stacked on mobile */}
@@ -737,11 +598,150 @@ function ReferenceDetailsPage() {
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="mt-8 pt-6 border-t border-slate-50 text-center animate-text-gradient">
-                        <p className="text-[11px] text-slate-400 mb-4 italic px-2 wrap-break-word">Update button will be enabled only if the reference is currently assigned to you</p>
-                        <p className="text-[11px] font-bold text-slate-300 px-2 wrap-break-word">© {new Date().getFullYear()} Council of Scientific & Industrial Research</p>
+                        <div className="mt-8 pt-6 border-t border-slate-50 text-center animate-text-gradient">
+                            <p className="text-[11px] text-slate-400 mb-4 italic px-2 wrap-break-word">Update button will be enabled only if the reference is currently assigned to you</p>
+                            <p className="text-[11px] font-bold text-slate-300 px-2 wrap-break-word">© {new Date().getFullYear()} Council of Scientific & Industrial Research</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Column: Movement Timeline */}
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                        {/* Header */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8">
+                            <div>
+                                <h2 className="text-xl font-bold text-gray-900 mb-1 animate-text-gradient">Movement Flow</h2>
+                                <p className="text-gray-500 text-sm">Chronological history of the reference.</p>
+                            </div>
+                            {/* Reminder / Reopen Request Button */}
+                            {(isAdmin || (currentUser?._id && movements?.some(m =>
+                                (m.markedTo?._id === currentUser._id) || (m.performedBy?._id === currentUser._id)
+                            )) || (currentUser?._id && reference.createdBy && (typeof reference.createdBy === 'object' ? reference.createdBy._id === currentUser._id : reference.createdBy === currentUser._id))) && (
+                                    <div className="w-full sm:w-auto">
+                                        {reference.status === 'Closed' ? (
+                                            /* HIDE BUTTON if Admin OR if Request is already Pending */
+                                            !isAdmin && !reference.reopenRequest && (
+                                                <Button
+                                                    label="Reopening Request"
+                                                    className="w-full sm:w-auto px-6 py-2.5 bg-orange-600 text-white hover:bg-orange-700 shadow-sm text-sm font-bold uppercase tracking-wider"
+                                                    onClick={() => setIsReopenModalOpen(true)}
+                                                />
+                                            )
+                                        ) : (
+                                            <Button
+                                                label="Issue Reminder / Seek Inputs"
+                                                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm text-sm font-bold uppercase tracking-wider"
+                                                onClick={() => setIsReminderModalOpen(true)}
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                        </div>
+
+                        <div className="relative overflow-visible">
+                            {/* Vertical Line */}
+                            <div className="absolute left-6 sm:left-6 top-0 bottom-0 w-0.5 bg-gray-100 italic"></div>
+
+                            <div className="space-y-8">
+                                {movements && movements.map((movement) => (
+                                    <div key={movement._id} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6 group">
+                                        {/* Status Circle */}
+                                        <div className="flex-none flex sm:block items-center gap-3">
+                                            <div
+                                                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-4 border-white ring-1 ring-gray-100"
+                                                style={{ backgroundColor: '#a855f7' }}
+                                            >
+                                                {((movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))?.fullName?.substring(0, 2).toUpperCase()) || "NA"}
+                                            </div>
+                                            {/* Date for mobile - beside avatar */}
+                                            <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                                {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        </div>
+
+                                        {/* Content */}
+                                        <div className="grow">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <div>
+                                                    <h3 className="font-semibold text-gray-900 flex flex-wrap">
+                                                        <button
+                                                            onClick={() => openUserProfile(getUserId(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)))}
+                                                            className="hover:text-indigo-600 hover:underline text-left font-semibold wrap-break-word"
+                                                        >
+                                                            {getUserDisplayName(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
+                                                        </button>
+                                                    </h3>
+                                                    <div className="inline-flex items-center gap-1 mt-1">
+                                                        <span className="w-2 h-2 rounded-full border border-red-500 flex items-center justify-center">
+                                                            <span className="w-1 h-1 rounded-full bg-red-500"></span>
+                                                        </span>
+                                                        <span className="text-sm text-gray-600 font-semibold">{movement.statusOnMovement}</span>
+                                                    </div>
+                                                    {movement.performedBy && (
+                                                        <div className="text-xs text-gray-500 mt-2 mb-1">
+                                                            <span>Next marked to: </span>
+                                                            {Array.isArray(movement.markedTo) && movement.markedTo.length > 1 ? (
+                                                                <div className="inline-block relative">
+                                                                    <button
+                                                                        onClick={() => toggleMovementAdminList(movement._id)}
+                                                                        className="text-indigo-600 font-bold hover:underline flex items-center gap-1"
+                                                                    >
+                                                                        All Relevant Administrators ({movement.markedTo.length})
+                                                                        {currentUser?._id && Array.isArray(movement.markedTo) && movement.markedTo.some(m => String(getUserId(m)) === String(currentUser._id)) && (
+                                                                            <Flag className="w-2.5 h-2.5 text-red-500 animate-bounce" fill="currentColor" />
+                                                                        )}
+                                                                    </button>
+                                                                    {expandedMovements[movement._id] && (
+                                                                        <div className="absolute z-10 left-0 mt-2 p-3 bg-white border border-gray-200 rounded-lg shadow-xl min-w-[250px] max-h-[200px] overflow-y-auto">
+                                                                            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-2 border-b pb-1">Assigned Admins</p>
+                                                                            <div className="space-y-1.5">
+                                                                                {movement.markedTo.map((m: any, idx: number) => (
+                                                                                    <div key={m._id || idx} className="flex flex-col">
+                                                                                        <button
+                                                                                            onClick={() => openUserProfile(getUserId(m))}
+                                                                                            className="text-xs text-indigo-600 hover:underline text-left font-medium"
+                                                                                        >
+                                                                                            {m.fullName || "Unknown Admin"}
+                                                                                        </button>
+                                                                                        <span className="text-[10px] text-gray-400 italic">
+                                                                                            {m.designation || "Admin"} ({m.labName || "CSIR"})
+                                                                                        </span>
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => openUserProfile(getUserId(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
+                                                                    className="hover:text-indigo-600 hover:underline text-left text-indigo-600 font-medium"
+                                                                >
+                                                                    {getUserDisplayName(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <span className="text-xs text-gray-500">
+                                                    {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                </span>
+                                            </div>
+
+                                            <div className="bg-gray-50 rounded-md p-3 mt-2 border border-gray-100">
+                                                <p className="text-gray-700 text-sm">{movement.remarks || "No remarks provided."}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {(!movements || movements.length === 0) && (
+                                    <div className="pl-16 text-gray-500 italic">No movements recorded yet.</div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
