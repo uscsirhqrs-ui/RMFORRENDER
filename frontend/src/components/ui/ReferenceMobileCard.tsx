@@ -54,9 +54,12 @@ export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
                         </span>
                     </div>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider font-heading ${statusRenderer(row.status)}`}>
+                <Link
+                    to={`${linkBaseUrl}/${row._id}`}
+                    className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider font-heading hover:opacity-80 transition-opacity ${statusRenderer(row.status)}`}
+                >
                     {row.status}
-                </span>
+                </Link>
             </div>
 
             <div>

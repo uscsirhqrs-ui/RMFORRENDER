@@ -245,19 +245,19 @@ export const exportReferenceReportPDF = async (
             pageDoc.text(labName.toUpperCase(), rightMargin, 28, { align: 'right' });
             pageDoc.setTextColor(31, 41, 55);
             pageDoc.setFontSize(orientation === 'landscape' ? 24 : 20);
-            pageDoc.text("REFERENCE REPORT", rightMargin, 42, { align: 'right' });
+            pageDoc.text("Reference Movement Details", rightMargin, 42, { align: 'right' });
             pageDoc.setFontSize(orientation === 'landscape' ? 9 : 8);
             pageDoc.setFont("helvetica", "normal");
             pageDoc.setTextColor(107, 114, 128);
-            pageDoc.text("LOCAL REFERENCE MANAGEMENT SYSTEM", rightMargin, 50, { align: 'right' });
+            pageDoc.text("CSIR Reference Management System", rightMargin, 50, { align: 'right' });
         } else {
             pageDoc.setTextColor(31, 41, 55);
             pageDoc.setFontSize(orientation === 'landscape' ? 26 : 22);
-            pageDoc.text("REFERENCE REPORT", rightMargin, 35, { align: 'right' });
+            pageDoc.text("Reference Movement Details", rightMargin, 35, { align: 'right' });
             pageDoc.setFontSize(orientation === 'landscape' ? 11 : 10);
             pageDoc.setFont("helvetica", "normal");
             pageDoc.setTextColor(107, 114, 128);
-            pageDoc.text("GLOBAL REFERENCE TRACKING SYSTEM", rightMargin, 45, { align: 'right' });
+            pageDoc.text("CSIR Reference Management System", rightMargin, 45, { align: 'right' });
         }
 
         pageDoc.setDrawColor(229, 231, 235);

@@ -358,7 +358,7 @@ function LocalReferencesPage() {
                             { header: 'Remarks', dataKey: 'remarks' }
                         ]}
                         filename={`Local-References-${user?.labName}`}
-                        title={`Local References - ${user?.labName}`}
+                        title={`Local References Report - ${user?.labName}`}
                         exportedBy={user ? `${user.fullName} (${user.email})` : 'Unknown User'}
                         filterSummary={[
                             selectedStatuses.length > 0 && `Status: ${selectedStatuses.join(', ')}`,

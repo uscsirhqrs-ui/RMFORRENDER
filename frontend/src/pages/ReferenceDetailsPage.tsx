@@ -642,7 +642,7 @@ function ReferenceDetailsPage() {
 
                         <div className="relative overflow-visible">
                             {/* Vertical Line */}
-                            <div className="absolute left-6 sm:left-6 top-0 bottom-0 w-0.5 bg-gray-100 italic"></div>
+                            <div className="absolute left-6 sm:left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
                             <div className="space-y-8">
                                 {movements && movements.map((movement) => (
@@ -662,7 +662,7 @@ function ReferenceDetailsPage() {
                                         </div>
 
                                         {/* Content */}
-                                        <div className="grow">
+                                        <div className="grow pl-12 sm:pl-0">
                                             <div className="flex justify-between items-start mb-1">
                                                 <div>
                                                     <h3 className="font-semibold text-gray-900 flex flex-wrap">
@@ -725,7 +725,7 @@ function ReferenceDetailsPage() {
                                                         </div>
                                                     )}
                                                 </div>
-                                                <span className="text-xs text-gray-500">
+                                                <span className="text-xs text-gray-500 hidden sm:block">
                                                     {new Date(movement.movementDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                 </span>
                                             </div>
