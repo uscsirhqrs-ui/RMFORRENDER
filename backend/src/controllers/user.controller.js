@@ -763,14 +763,14 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     throw new ApiErrors("Avatar file is required", 400);
   }
 
-  // Check file size (20KB limit)
+  // Check file size (50KB limit)
   const stats = fs.statSync(avatarLocalPath);
   const fileSizeInBytes = stats.size;
   const fileSizeInKB = fileSizeInBytes / 1024;
 
-  if (fileSizeInKB > 20) {
+  if (fileSizeInKB > 50) {
     fs.unlinkSync(avatarLocalPath);
-    throw new ApiErrors("Image size must be less than 20KB", 400);
+    throw new ApiErrors("Image size must be less than 50KB", 400);
   }
 
   const user = await User.findById(req.user?._id);

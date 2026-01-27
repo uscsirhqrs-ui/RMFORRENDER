@@ -197,10 +197,10 @@ const ProfilePage = () => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // 20KB limit check
-        if (file.size > 20 * 1024) {
-            toast.error("Image size must be less than 20KB");
-            setError("Image size must be less than 20KB");
+        // 50KB limit check
+        if (file.size > 50 * 1024) {
+            toast.error("Image size must be less than 50KB");
+            setError("Image size must be less than 50KB");
             return;
         }
 
