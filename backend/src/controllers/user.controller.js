@@ -1469,7 +1469,8 @@ export {
   manualActivateUser,
   bulkManualActivateUsers,
   switchRole,
-  updateUserAvailableRoles
+  updateUserAvailableRoles,
+  resendActivationEmail
 };
 
 /**

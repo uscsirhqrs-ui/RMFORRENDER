@@ -454,9 +454,11 @@ const getFeaturePermissions = asyncHandler(async (req, res) => {
         roles: dbPermissionsMap.get(def.feature) || def.roles
     }));
 
-    config.value = newConfigValue;
-    config.markModified('value');
-    await config.save();
+    // Use findOneAndUpdate to avoid VersionErrors from concurrent save() calls
+    await SystemConfig.findOneAndUpdate(
+        { key: FEATURE_PERMISSIONS_KEY },
+        { $set: { value: newConfigValue } }
+    );
     console.log('[Controller] Synced feature permissions with defaults.');
 
     console.log('[Controller] Returning permissions:', JSON.stringify(config.value, null, 2));
