@@ -79,9 +79,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 try {
                     const parsedUser = JSON.parse(storedUser);
                     setUser(parsedUser); // Optimistic update from local storage
+                    setIsLoading(false); // Set loading to false as soon as we have local data
 
-                    // Fetch fresh user data from backend to ensure roles are synced
-                    // This fixes the issue where local storage has stale 'User' role but DB has updated role
+                    // Fetch fresh user data from backend to ensure roles/status are synced
+                    // This happens in the background without blocking the UI
                     try {
                         const userResponse = await getCurrentUser();
                         if (userResponse.success && userResponse.data) {
@@ -95,18 +96,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         }
                     } catch (apiError) {
                         console.warn("[AuthContext] Failed to refresh user from backend (Network/API Error)", apiError);
-                        // Optional: Clear user on network error too? Maybe better to keep optimistic for offline sup.
-                        // But for security, better to fail closed if critical.
-                        // For now, let's assume if it throws, it's serious.
                     }
 
                 } catch (error) {
                     console.error("Failed to parse user from local storage", error);
                     localStorage.removeItem('user');
+                    setIsLoading(false);
                 }
+            } else {
+                setIsLoading(false); // No user, stop loading immediately
             }
-            await fetchPermissions();
-            setIsLoading(false);
+            // Fetch permissions in the background
+            fetchPermissions();
         };
         initAuth();
     }, []);

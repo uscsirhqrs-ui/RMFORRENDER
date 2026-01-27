@@ -51,7 +51,10 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissions }: Protect
     });
 
     // Wait for auth and permissions to finish loading before making redirect decisions
-    if (isLoading || isPermissionsLoading) {
+    // OPTIMIZATION: If we already have a user from AuthContext (optimistic load), 
+    // we can skip the full screen loader and just render the children/outlet.
+    // The background sync will handle any subsequent role/status changes.
+    if (!user && (isLoading || isPermissionsLoading)) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50/50">
                 <div className="flex flex-col items-center gap-4">

@@ -60,17 +60,24 @@ export default function HomePage() {
         return <Navigate to="/profile" replace />;
     }
 
+    // Zero-flicker loading handler
+    // We only show a loading screen if we definitely expect a redirect (authenticated user)
+    // but the permissions aren't ready yet. Public users should see the Home Page instantly.
     if (isLoading || (isAuthenticated && (isPermissionsLoading || location.pathname === '/'))) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-500 font-medium animate-pulse">
-                        {isAuthenticated ? "Redirecting to your dashboard..." : "Setting up your workspace..."}
-                    </p>
+        // If we have a user in local storage, we might show a brief "Redirecting" but only if we are on '/'
+        // For public visitors (no user), we skip this entirely and render the page.
+        if (isAuthenticated || isLoading) {
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-slate-500 font-medium animate-pulse">
+                            {isAuthenticated ? "Redirecting to your dashboard..." : "Setting up your workspace..."}
+                        </p>
+                    </div>
                 </div>
-            </div>
-        );
+            );
+        }
     }
 
     const features = [
