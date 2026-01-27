@@ -6,6 +6,7 @@ dist/
 build/
 coverage/
 
+ENV_SAMPLE.TXT
 # Logs
 logs/
 *.log
