@@ -38,7 +38,19 @@ import ApiErrors from "./utils/ApiErrors.js";
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "img-src": ["'self'", "data:", "res.cloudinary.com"],
+      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+      "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+      "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      "connect-src": ["'self'"],
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 const limiter = slowDown({
   windowMs: 15 * 60 * 1000, // 5 minutes
