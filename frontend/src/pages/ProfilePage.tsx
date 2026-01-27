@@ -296,7 +296,7 @@ const ProfilePage = () => {
                                                 <>
                                                     Please provide all details (Name, Lab, Designation, Division, Mobile) to enable account submission.
                                                     <br />
-                                                    <strong>Click Edit Profile button to fill/update the details.</strong>
+                                                    <strong>Click The Edit Profile button to fill/update the details.</strong>
                                                 </>
                                             ) :
                                                 "Your profile is ready! Click the 'Submit for Approval' button to notify the administrator."}

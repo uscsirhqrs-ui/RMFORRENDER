@@ -97,7 +97,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
     delete createdUser.refreshToken;
 
     // Email Activation Flow - NON-BLOCKING
-    const activationUrl = `${getBaseUrl()}/activate-account?token=${activationToken}&userId=${userId}`;
+    const activationUrl = `${getBaseUrl()}/activate-account?token=${encodeURIComponent(activationToken)}&userId=${userId}`;
 
     sendEmail({
       to: email,
@@ -475,8 +475,15 @@ const activateAccount = asyncHandler(async (req, res) => {
     throw new ApiErrors("Invalid token for this user account", 400);
   }
 
-  if (token !== user.activationToken) {
+  if (token.trim() !== (user.activationToken || "").trim()) {
     console.error(`Token mismatch for user ${user._id}`);
+    console.log(`FULL Received Token: "${token}"`);
+    console.log(`FULL DB Token:       "${user.activationToken}"`);
+
+    if (user.isActivated) {
+      return res.status(200).json(new ApiResponse(200, "Account is already activated. Please login.", { success: true, alreadyActivated: true }));
+    }
+
     throw new ApiErrors("Activation token does not match. It may have been regenerated or already used.", 400);
   }
 
@@ -516,7 +523,7 @@ const resendActivationEmail = asyncHandler(async (req, res) => {
   user.activationToken = activationToken;
   await user.save({ validateBeforeSave: false });
 
-  const activationUrl = `${getBaseUrl()}/activate-account?token=${activationToken}&userId=${user._id}`;
+  const activationUrl = `${getBaseUrl()}/activate-account?token=${encodeURIComponent(activationToken)}&userId=${user._id}`;
 
   // Send Email - NON-BLOCKING
   sendEmail({
@@ -592,7 +599,7 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validateBeforeSave: false });
 
     // Reset link (replace with your frontend URL)
-    const resetUrl = `${getBaseUrl()}/reset-password?token=${resetPasswordToken}&userId=${user._id}`;
+    const resetUrl = `${getBaseUrl()}/reset-password?token=${encodeURIComponent(resetPasswordToken)}&userId=${user._id}`;
     console.log("resetUrl is- ", resetUrl);
 
     sendEmail({
