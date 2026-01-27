@@ -58,9 +58,6 @@ function LocalReferencesPage() {
         totalReferences: 0
     });
 
-
-
-
     // Filters
     const [availableCreatedByUsers, setAvailableCreatedByUsers] = useState<any[]>([]);
     const [availableMarkedToUsers, setAvailableMarkedToUsers] = useState<any[]>([]);
@@ -105,9 +102,7 @@ function LocalReferencesPage() {
         setSelectedIds(new Set());
     }, [currentPage, rowsPerPage, selectedStatuses, selectedPriorities, selectedMarkedTo, selectedCreatedBy, selectedDivisions, subjectFilter, pendingDaysFilter, sortConfig]);
 
-
     const handleSelectAll = () => {
-        // Filter references that are marked to the current user
         const actionableReferences = references.filter(r => {
             const markedToDetails = (r as any).markedToDetails;
             const markedToEmails = Array.isArray(markedToDetails)
@@ -194,8 +189,6 @@ function LocalReferencesPage() {
         fetchStats();
     }, []);
 
-
-
     useEffect(() => {
         const fetchFilters = async () => {
             const res = await getLocalReferenceFilters();
@@ -241,7 +234,6 @@ function LocalReferencesPage() {
         setActiveCard(type);
         setCurrentPage(1);
 
-        // Reset all filters before applying status card filter
         setSelectedStatuses([]);
         setSelectedPriorities([]);
         setSelectedMarkedTo([]);
@@ -304,7 +296,7 @@ function LocalReferencesPage() {
         <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-500">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 md:gap-6 pb-2">
                 <div className="flex flex-1 items-center gap-4 md:gap-6 w-full">
-                    <h1 className="text-xl md:text-2xl font-semibold text-gray-900 tracking-tight font-heading flex items-center gap-2 whitespace-nowrap mb-0 ">
+                    <h1 className="text-xl md:text-2xl font-semibold text-gray-900 font-heading flex items-center gap-2 whitespace-nowrap mb-0 ">
                         <Building2 className="w-6 h-6 text-indigo-600 " />
                         Local References
                     </h1>
@@ -398,13 +390,12 @@ function LocalReferencesPage() {
             <div className="-mt-4 pb-2">
                 <p className="text-gray-500 text-xs font-heading">
                     Manage references within <span className="font-bold text-indigo-600 uppercase">{user?.labName}</span>
-                    {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase tracking-widest font-bold shadow-sm">
+                    {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase font-bold shadow-sm">
                         Total: {totalReferences} of {stats.totalReferences}
                     </span>}
                 </p>
             </div>
 
-            {/* Status Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
                 <StatusCard
                     info={{
@@ -546,7 +537,6 @@ function LocalReferencesPage() {
                 </div>
             </div>
 
-            {/* Bulk Action Bar */}
             {selectedIds.size > 0 && (
                 <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-3">
@@ -572,19 +562,18 @@ function LocalReferencesPage() {
                 </div>
             )}
 
-            {/* Current Filters Display */}
             {(selectedStatuses.length > 0 || selectedPriorities.length > 0 || selectedMarkedTo.length > 0 || selectedDivisions.length > 0 || subjectFilter || pendingDaysFilter) && (
                 <div className="flex flex-wrap items-center gap-2 mb-2 animate-in fade-in slide-in-from-top-2 duration-300 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest font-heading mr-2">Filters:</span>
 
                     {selectedStatuses.map(status => (
-                        <span key={status} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${getStatusStyles(status)}`}>
+                        <span key={status} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border ${getStatusStyles(status)}`}>
                             {status}
                         </span>
                     ))}
 
                     {selectedPriorities.map(priority => (
-                        <span key={priority} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${getPriorityStyles(priority)}`}>
+                        <span key={priority} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border ${getPriorityStyles(priority)}`}>
                             {priority}
                         </span>
                     ))}
@@ -745,13 +734,13 @@ function LocalReferencesPage() {
                                 );
                             },
                             status: (row: any) => (
-                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${getStatusStyles(row.status)}`}>
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase inline-flex items-center gap-1 ${getStatusStyles(row.status)}`}>
                                     <span className="h-1 w-1 rounded-full bg-current" />
                                     {row.status}
                                 </span>
                             ),
                             priority: (row: any) => (
-                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${getPriorityStyles(row.priority)}`}>
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase inline-flex items-center gap-1 ${getPriorityStyles(row.priority)}`}>
                                     <span className="text-[10px]">{row.priority?.toLowerCase() === 'high' ? '↑' : row.priority?.toLowerCase() === 'low' ? '↓' : '→'}</span>
                                     {row.priority}
                                 </span>
@@ -815,55 +804,55 @@ function LocalReferencesPage() {
                 )}
             </div>
 
-            {/* Mobile View */}
-            <MobileCardList
-                data={references}
-                keyExtractor={(row) => row._id}
-                emptyMessage="No references found matching your filters."
-                renderItem={(row) => {
-                    const markedToDetails = (row as any).markedToDetails;
-                    const markedToEmails = Array.isArray(markedToDetails)
-                        ? markedToDetails.map((d: any) => d.email)
-                        : [markedToDetails?.email || (typeof row.markedTo === 'object' ? (row.markedTo as any)?.email : '')];
+            <div className="md:hidden">
+                <MobileCardList
+                    data={references}
+                    keyExtractor={(row) => row._id}
+                    emptyMessage="No references found matching your filters."
+                    renderItem={(row) => {
+                        const markedToDetails = (row as any).markedToDetails;
+                        const markedToEmails = Array.isArray(markedToDetails)
+                            ? markedToDetails.map((d: any) => d.email)
+                            : [markedToDetails?.email || (typeof row.markedTo === 'object' ? (row.markedTo as any)?.email : '')];
 
-                    const isMarkedToMe = user?.email &&
-                        row.status !== 'Closed' &&
-                        markedToEmails.includes(user.email);
+                        const isMarkedToMe = user?.email &&
+                            row.status !== 'Closed' &&
+                            markedToEmails.includes(user.email);
 
-                    const detailsArr = Array.isArray((row as any).markedToDetails)
-                        ? (row as any).markedToDetails as any[]
-                        : [(row as any).markedToDetails].filter(Boolean);
+                        const detailsArr = Array.isArray((row as any).markedToDetails)
+                            ? (row as any).markedToDetails as any[]
+                            : [(row as any).markedToDetails].filter(Boolean);
 
-                    return (
-                        <ReferenceMobileCard
-                            data={row}
-                            isSelected={selectedIds.has(row._id)}
-                            onToggleSelect={() => isMarkedToMe && handleSelectRow(row._id)}
-                            disableSelection={!isMarkedToMe}
-                            linkBaseUrl="/references/local"
-                            statusRenderer={getStatusStyles}
-                            additionalInfo={
-                                <>
-                                    {detailsArr.length > 0 && (
-                                        <div className="flex gap-1">
-                                            <span className="font-semibold text-gray-500">To:</span>
-                                            <span className="truncate">{detailsArr[0].fullName}{detailsArr.length > 1 ? ` +${detailsArr.length - 1}` : ''}</span>
-                                        </div>
-                                    )}
-                                    {row.createdByDetails && (
-                                        <div className="flex gap-1">
-                                            <span className="font-semibold text-gray-500">By:</span>
-                                            <span className="truncate">{row.createdByDetails.fullName}</span>
-                                        </div>
-                                    )}
-                                </>
-                            }
-                        />
-                    );
-                }}
-            />
+                        return (
+                            <ReferenceMobileCard
+                                data={row}
+                                isSelected={selectedIds.has(row._id)}
+                                onToggleSelect={() => isMarkedToMe && handleSelectRow(row._id)}
+                                disableSelection={!isMarkedToMe}
+                                linkBaseUrl="/references/local"
+                                statusRenderer={getStatusStyles}
+                                additionalInfo={
+                                    <>
+                                        {detailsArr.length > 0 && (
+                                            <div className="flex gap-1">
+                                                <span className="font-semibold text-gray-500">To:</span>
+                                                <span className="truncate">{detailsArr[0].fullName}{detailsArr.length > 1 ? ` +${detailsArr.length - 1}` : ''}</span>
+                                            </div>
+                                        )}
+                                        {row.createdByDetails && (
+                                            <div className="flex gap-1">
+                                                <span className="font-semibold text-gray-500">By:</span>
+                                                <span className="truncate">{row.createdByDetails.fullName}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                }
+                            />
+                        );
+                    }}
+                />
+            </div>
 
-            {/* Pagination */}
             {references.length > 0 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-8 pb-2 border-t border-gray-100 mt-8">
                     <div className="flex items-center gap-4">

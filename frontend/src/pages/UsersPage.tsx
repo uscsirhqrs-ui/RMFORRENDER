@@ -433,7 +433,7 @@ const UsersPage: React.FC = () => {
                 selectedRoles.length > 0 ||
                 searchTerm) && (
                     <div className="flex flex-wrap items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest font-heading mr-2">Filters:</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase font-heading mr-2">Filters:</span>
 
                         {searchTerm && (
                             <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-gray-50 text-gray-700 border-gray-100">
@@ -442,7 +442,7 @@ const UsersPage: React.FC = () => {
                         )}
 
                         {selectedStatuses.map(status => (
-                            <span key={status} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${status === 'Approved' ? 'bg-green-50 text-green-700 border-green-100' :
+                            <span key={status} className={`px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase border ${status === 'Approved' ? 'bg-green-50 text-green-700 border-green-100' :
                                 status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                                     'bg-red-50 text-red-700 border-red-100'
                                 }`}>
@@ -678,7 +678,7 @@ const UsersPage: React.FC = () => {
             {totalUsers > 0 && (
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-6 pt-8 pb-2 border-t border-gray-100 mt-8">
                     <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest font-heading">Display</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase font-heading">Display</span>
                         <select
                             value={rowsPerPage}
                             onChange={(e) => {
@@ -693,7 +693,7 @@ const UsersPage: React.FC = () => {
                             <option value={100}>100</option>
                         </select>
                         <div className="h-4 w-px bg-gray-100 mx-2" />
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest font-heading">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase font-heading">
                             Showing {((currentPage - 1) * rowsPerPage) + 1}–{Math.min(currentPage * rowsPerPage, totalUsers)} of {totalUsers}
                         </span>
                     </div>

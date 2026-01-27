@@ -38,7 +38,7 @@ function StatusCard({ info, onClick, isActive, loading, additionalInfo }: Status
             }}
         >
             <span className="flex justify-between h-10 items-start">
-                <h2 className={`text-[12px] font-medium  tracking-[0.15em] font-heading transition-colors ${isActive ? 'text-indigo-600' : 'text-gray-800'}`}>
+                <h2 className={`text-[12px] font-medium font-heading transition-colors ${isActive ? 'text-indigo-600' : 'text-gray-800'}`}>
                     {info.title}
                 </h2>
                 {info.icon ? (
@@ -49,7 +49,7 @@ function StatusCard({ info, onClick, isActive, loading, additionalInfo }: Status
                     <img src={info.iconUrl} alt={`${info.title} icon`} className={`w-5 h-5 transition-opacity ${isActive ? 'opacity-100' : 'opacity-100'}`} />
                 )}
             </span>
-            <h1 className={`text-xl font-bold font-heading tracking-tight transition-colors ${isActive ? 'text-indigo-700' : 'text-gray-900'}`}>
+            <h1 className={`text-xl font-bold font-heading transition-colors ${isActive ? 'text-indigo-700' : 'text-gray-900'}`}>
                 {loading ? (
                     <div className="h-7 w-12 bg-gray-200 animate-pulse rounded-md" />
                 ) : (

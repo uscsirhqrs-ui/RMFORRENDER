@@ -705,6 +705,36 @@ export const updateLocalReference = asyncHandler(async (req, res) => {
     });
     await movement.save();
 
+    // Notifications
+    try {
+        const actorName = getUserDisplayName(req.user);
+        for (const user of nextUsers) {
+            if (user._id.toString() !== req.user._id.toString()) {
+                // Email
+                if (user.email) {
+                    const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
+                    sendEmail({
+                        to: user.email,
+                        subject: `Local Reference Updated: ${reference.subject} [${reference.refId}]`,
+                        html: emailContent
+                    }).catch(err => console.error(`Failed to send email to ${user.email}:`, err));
+                }
+
+                // Internal Notification
+                await createNotification(
+                    user._id,
+                    'REFERENCE_ASSIGNED',
+                    'Local Reference Updated',
+                    `A local reference has been assigned or updated to you: ${reference.subject}`,
+                    reference._id,
+                    'LocalReference'
+                );
+            }
+        }
+    } catch (error) {
+        console.error("Notification failed for local reference update:", error);
+    }
+
     res.status(200).json(new ApiResponse(200, "Local reference updated successfully", reference));
 });
 

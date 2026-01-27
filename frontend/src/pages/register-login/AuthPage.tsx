@@ -245,7 +245,7 @@ const AuthPage: React.FC = () => {
                   <div className="w-full border-t border-gray-100 dark:border-gray-700"></div>
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white dark:bg-gray-800 px-2 text-gray-400 tracking-wider font-medium">Or</span>
+                  <span className="bg-white dark:bg-gray-800 px-2 text-gray-400 font-medium">Or</span>
                 </div>
               </div>
 

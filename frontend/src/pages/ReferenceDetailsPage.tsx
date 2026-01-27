@@ -414,7 +414,7 @@ function ReferenceDetailsPage() {
                             {/* Title and Info Area */}
                             <div className="space-y-4">
                                 <div>
-                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight tracking-tight wrap-break-word">{reference.subject}</h1>
+                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight wrap-break-word">{reference.subject}</h1>
 
                                     <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4">
                                         <div className="flex flex-col gap-0.5">

@@ -91,6 +91,7 @@
   body {
     @apply font-sans antialiased text-gray-700 bg-slate-50/50 leading-relaxed dark:bg-gray-900 dark:text-gray-300;
     font-weight: var(--font-weight-regular);
+    letter-spacing: 0.015em;
     overflow-x: hidden;
     max-width: 100%;
   }
@@ -120,7 +121,7 @@
   h4,
   h5,
   h6 {
-    @apply font-heading tracking-tight text-gray-900;
+    @apply font-heading tracking-normal text-gray-900;
     font-weight: var(--font-weight-bold);
   }
 

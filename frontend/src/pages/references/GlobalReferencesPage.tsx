@@ -463,7 +463,7 @@ function GlobalReferencesPage() {
                 <div className="-mt-4 pb-2">
                     <p className="text-gray-500 text-xs font-heading">
                         Send references to any <span className="text-indigo-600 font-bold">CSIR lab/unit.</span> The <span className="text-indigo-600 font-bold">Inter lab sender</span> role is required for sending/receiving global references.
-                        {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase tracking-widest font-bold shadow-sm">
+                        {stats.totalReferences > 0 && <span className="ml-2 text-[10px] bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-full border border-indigo-100 uppercase font-bold shadow-sm">
                             Total: {totalReferences} of {stats.totalReferences}
                         </span>}
                     </p>
@@ -636,16 +636,16 @@ function GlobalReferencesPage() {
                 {/* Current Filters Display */}
                 {(selectedStatuses.length > 0 || selectedPriorities.length > 0 || selectedMarkedTo.length > 0 || selectedCreatedBy.length > 0 || subjectFilter || pendingDaysFilter) && (
                     <div className="flex flex-wrap items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                        <span className="text-xs pl-2 pr-1 font-semibold text-gray-600  tracking-widest font-heading mr-1">Current Filters:</span>
+                        <span className="text-xs pl-2 pr-1 font-semibold text-gray-600 font-heading mr-1">Current Filters:</span>
 
                         {selectedStatuses.map(status => (
-                            <span key={status} className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusStyles(status)}`}>
+                            <span key={status} className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getStatusStyles(status)}`}>
                                 {status}
                             </span>
                         ))}
 
                         {selectedPriorities.map(priority => (
-                            <span key={priority} className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getPriorityStyles(priority)}`}>
+                            <span key={priority} className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${getPriorityStyles(priority)}`}>
                                 {priority}
                             </span>
                         ))}
