@@ -103,8 +103,6 @@ function Header() {
           navigate('/data-collection/shared');
         }
       } else if (notification.referenceId) {
-      } else if (notification.referenceId) {
-
         // 1. New Efficient Routing (if referenceType is present)
         if (notification.referenceType === 'LocalReference') {
           navigate(`/references/local/${notification.referenceId}`);
@@ -115,6 +113,7 @@ function Header() {
         }
 
         // 2. Legacy Fallback Routing (try Local then Global checks)
+        // This is still useful if referenceType is missing from older notifications
         try {
           const localCheck = await getLocalReferenceById(notification.referenceId);
           if (localCheck.success && localCheck.data) {
@@ -131,7 +130,7 @@ function Header() {
           }
         } catch (e) { /* Ignore */ }
 
-        // Fallback if neither found (or error) - maybe specific error page or stay put with toast
+        // Fallback if neither found
         toast.error("Reference not found");
       }
     } catch (error) {
