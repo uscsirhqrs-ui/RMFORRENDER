@@ -34,6 +34,7 @@ import AuditTrailsPage from "./pages/AuditTrailsPage";
 import CreateFormPage from "./pages/data-collection/CreateFormPage";
 import SharedFormsPage from "./pages/data-collection/SharedFormsPage";
 import SavedTemplatesPage from "./pages/data-collection/SavedTemplatesPage";
+import LoginAnnouncement from "./components/LoginAnnouncement";
 
 import { FeatureCodes, SUPERADMIN_ROLE_NAME } from './constants';
 import { SettingsProvider } from "./context/SettingsContext";
@@ -50,6 +51,7 @@ function App() {
       <MessageBoxProvider>
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-300 w-full overflow-x-hidden relative">
           <Header />
+          <LoginAnnouncement />
           <main id="maincontent" className="w-full grow" >
             {/* Main content goes here and routers etc*/}
             <Routes>

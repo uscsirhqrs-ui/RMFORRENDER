@@ -75,7 +75,9 @@ export const initializeDefaultConfigs = async () => {
         { key: "ALLOWED_DOMAINS", value: DEFAULT_ALLOWED_DOMAINS, description: "List of email domains allowed for registration and login" },
         { key: "LABS", value: DEFAULT_LABS, description: "List of CSIR Labs / Institutions" },
         { key: "DESIGNATIONS", value: DEFAULT_DESIGNATIONS, description: "List of standard designations" },
-        { key: "DIVISIONS", value: DEFAULT_DIVISIONS, description: "List of divisions / sections" }
+        { key: "DIVISIONS", value: DEFAULT_DIVISIONS, description: "List of divisions / sections" },
+        { key: "SHOW_LOGIN_MESSAGE", value: false, description: "Enable showing custom announcement message after login" },
+        { key: "LOGIN_MESSAGE_CONTENT", value: "", description: "Content of the custom announcement message" }
     ];
 
     for (const def of defaults) {

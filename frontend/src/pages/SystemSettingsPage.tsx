@@ -28,7 +28,8 @@ import {
     History,
     RefreshCw,
     ToggleLeft,
-    ToggleRight
+    ToggleRight,
+    Sparkles
 } from 'lucide-react';
 import { getSystemConfig, updateSystemConfig } from '../services/systemConfig.api';
 import { getArchivableCount, performArchiving } from '../services/archive.api';
@@ -60,6 +61,10 @@ const SystemSettingsPage: React.FC = () => {
     const [archivableCount, setArchivableCount] = useState<number | null>(null);
     const [isCalculatingArchive, setIsCalculatingArchive] = useState(false);
     const [isArchiving, setIsArchiving] = useState(false);
+
+    // Login Announcement State
+    const [showLoginMessage, setShowLoginMessage] = useState(false);
+    const [loginMessageContent, setLoginMessageContent] = useState('');
 
     // Domain Whitelisting State
     const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
@@ -114,6 +119,12 @@ const SystemSettingsPage: React.FC = () => {
             if (response.data['AUTO_ARCHIVE_ENABLED'] !== undefined) {
                 setIsAutoArchiveEnabled(response.data['AUTO_ARCHIVE_ENABLED']);
             }
+            if (response.data['SHOW_LOGIN_MESSAGE'] !== undefined) {
+                setShowLoginMessage(response.data['SHOW_LOGIN_MESSAGE']);
+            }
+            if (response.data['LOGIN_MESSAGE_CONTENT'] !== undefined) {
+                setLoginMessageContent(response.data['LOGIN_MESSAGE_CONTENT']);
+            }
         }
     };
 
@@ -162,7 +173,9 @@ const SystemSettingsPage: React.FC = () => {
             const updates = {
                 'REMARKS_WORD_LIMIT': Number(remarksLimit),
                 'ARCHIVE_RETENTION_DAYS': Number(retentionDays),
-                'AUTO_ARCHIVE_ENABLED': isAutoArchiveEnabled
+                'AUTO_ARCHIVE_ENABLED': isAutoArchiveEnabled,
+                'SHOW_LOGIN_MESSAGE': showLoginMessage,
+                'LOGIN_MESSAGE_CONTENT': loginMessageContent
             };
 
             const response = await updateSystemConfig(updates);
@@ -428,6 +441,60 @@ const SystemSettingsPage: React.FC = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            {/* Login Announcement */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-[1.5px]" />
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-white font-heading m-0">Login Announcement</h2>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${showLoginMessage ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                                <RefreshCw className={`w-5 h-5 ${showLoginMessage ? 'animate-spin-slow' : ''}`} />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-800 dark:text-white leading-none">Enable Login Announcement</p>
+                                <p className="text-xs text-gray-500 mt-1">Show a custom message to users after they log in.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowLoginMessage(!showLoginMessage)}
+                            className={`p-1 rounded-lg transition-all ${showLoginMessage ? 'text-emerald-500' : 'text-gray-400'}`}
+                        >
+                            {showLoginMessage ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
+                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-bold text-gray-700 dark:text-gray-300">Announcement Message</label>
+                        <textarea
+                            value={loginMessageContent}
+                            onChange={(e) => setLoginMessageContent(e.target.value)}
+                            placeholder="Enter the message to display after login..."
+                            rows={4}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                        />
+                        <p className="text-xs text-gray-500 italic">This message will be shown as a sticky note notification.</p>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                        <button
+                            onClick={handleSaveLimits}
+                            disabled={isSaving}
+                            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {isSaving ? 'Saving...' : 'Update Announcement Settings'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
