@@ -9,6 +9,7 @@
  */
 
 import asyncHandler from "../utils/asyncHandler.js";
+import mongoose from "mongoose";
 import ApiErrors from "../utils/ApiErrors.js";
 import { createNotification } from './notification.controller.js';
 import { User } from "../models/user.model.js";
@@ -23,7 +24,7 @@ import nodemailer from "nodemailer";
 import { logActivity } from "../utils/audit.utils.js";
 import { DEFAULT_COVER_IMAGE_URL, DEFAULT_AVATAR_URL } from '../constants.js';
 import { FeatureCodes, SUPERADMIN_ROLE_NAME } from "../constants.js";
-import { getBaseUrl, getAccountApprovedEmailTemplate } from "../utils/mail.js";
+import { getBaseUrl, getAccountApprovedEmailTemplate, sendEmail } from "../utils/mail.js";
 import { hasPermission, getRolesWithPermission, checkUserPermission } from "../utils/permission.utils.js";
 
 /**
@@ -53,7 +54,6 @@ const registerUser = asyncHandler(async (req, res, next) => {
     }
 
     // Check for allowed email domains
-    // The super admin can control which domains are allowed login
     const config = await SystemConfig.findOne({ key: "ALLOWED_DOMAINS" });
     const allowedDomains = (config?.value || []).map(d => d.toLowerCase().trim());
 
@@ -64,16 +64,18 @@ const registerUser = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Avatar and cover image handling (currently placeholders/logic commented out)
-    const avatar = "";
-    const coverImage = "";
+    // Pre-generate ID and activation token to save DB roundtrips
+    const userId = new mongoose.Types.ObjectId();
 
-    console.log("registerUser 2") // Sanitized for security
+    // Create a temporary user instance to use the schema method generateActivationToken
+    const tempUser = new User({ _id: userId });
+    const activationToken = tempUser.generateActivationToken();
 
     const user = await User.create({
+      _id: userId,
       fullName: fullName || "",
-      avatar: avatar.url?.url || "",
-      coverImage: coverImage?.url || "",
+      avatar: "",
+      coverImage: "",
       email,
       password,
       labName: (labName || "").toUpperCase(),
@@ -82,44 +84,35 @@ const registerUser = asyncHandler(async (req, res, next) => {
       mobileNo: mobileNo || "",
       status: 'Pending',
       availableRoles: ['User'],
+      activationToken, // Set directly on creation
     });
 
-    console.log("registerUser 3") // Sanitized for security
-    console.log("user created boss: ", user); // Sanitized for security
-    const createdUser = await User.findByIdAndUpdate(user._id).select(
-      "-password -refreshToken"
-    );
-
-    if (!createdUser) {
+    if (!user) {
       throw new ApiErrors("Error in creating user", 500);
     }
 
-    // Email Activation Flow
-    const activationToken = await user.generateActivationToken();
-    user.activationToken = activationToken;
-    await user.save({ validateBeforeSave: false });
+    // Convert to object and sanitize for response/logs
+    const createdUser = user.toObject();
+    delete createdUser.password;
+    delete createdUser.refreshToken;
 
-    const activationUrl = `${getBaseUrl()}/activate-account?token=${activationToken}&userId=${user._id}`;
+    // Email Activation Flow - NON-BLOCKING
+    const activationUrl = `${getBaseUrl()}/activate-account?token=${activationToken}&userId=${userId}`;
 
-    // Using a try-catch for email so registration succeeds even if email fails (can be resent)
-    try {
-      await sendEmail(email, "CSIR- Reference Management Portal-Activate Your Account",
-        `<p>Welcome to CSIR- Reference Management Portal! Please click <a href="${activationUrl}">here</a> to activate your account and set up your profile.</p>`
-      );
-    } catch (emailError) {
-      console.error("Failed to send activation email:", emailError);
-    }
+    sendEmail({
+      to: email,
+      subject: "CSIR- Reference Management Portal - Activate Your Account",
+      html: `<p>Welcome to CSIR- Reference Management Portal! Please click <a href="${activationUrl}">here</a> to activate your account and set up your profile.</p>`
+    });
 
-    await logActivity(req, "USER_REGISTER", "User", createdUser._id, { after: createdUser.toObject() }, createdUser._id);
+    // Logging Activity - NON-BLOCKING
+    logActivity(req, "USER_REGISTER", "User", userId, { after: createdUser }, userId);
 
     return res
       .status(201)
       .json(new ApiResponse(200, "User registered successfully. Please check your email to activate your account.", createdUser));
   } catch (error) {
-    throw new ApiErrors(error?.message ||
-      "Error in creating userSomething went wrong in creating user",
-      500
-    );
+    throw new ApiErrors(error?.message || "Error in creating user", 500);
   }
 });
 
@@ -558,9 +551,11 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     const resetUrl = `${getBaseUrl()}/reset-password?token=${resetPasswordToken}&userId=${user._id}`;
     console.log("resetUrl is- ", resetUrl);
 
-    await sendEmail(email, "Password Reset Request",
-      `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
-    );
+    sendEmail({
+      to: email,
+      subject: "Password Reset Request",
+      html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
+    });
 
     console.log(`Reset link sent on email- ${email}`);
 
@@ -833,29 +828,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, "Cover image updated successfully", user));
 });
 
-async function sendEmail(toEmail, subject, htmlContent) {
-  console.log("reached sendEmail with email", toEmail);
 
-  // Create transporter object using Gmail SMTP
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.RESET_SEND_EMAIL, // Your Gmail address
-      pass: process.env.RESET_SEND_APP_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: process.env.RESET_SEND_EMAIL,
-    to: toEmail,
-    subject: subject,
-    html: htmlContent,
-  };
-
-  // Send email
-  await transporter.sendMail(mailOptions);
-  console.log(`${subject} email sent to`, toEmail);
-}
 
 /**
  * Fetches all users who are not Admins.
@@ -1008,7 +981,11 @@ const updateUserStatus = asyncHandler(async (req, res) => {
   if (status === 'Approved') {
     try {
       const emailContent = getAccountApprovedEmailTemplate(user.fullName);
-      await sendEmail(user.email, "Account Approved - Reference Management Portal", emailContent);
+      sendEmail({
+        to: user.email,
+        subject: "Account Approved - Reference Management Portal",
+        html: emailContent
+      });
     } catch (error) {
       console.error("Failed to send approval email:", error);
       // We don't throw here to avoid rolling back the status update, just log the error
