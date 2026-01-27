@@ -85,7 +85,9 @@ function Button({
 
       {/* Label or children */}
       {(label || children) && (
-        <span className="relative z-10">{children || label}</span>
+        <span className="relative z-10 flex items-center justify-center gap-2 whitespace-nowrap">
+          {children || label}
+        </span>
       )}
 
       {/* Icon Right */}

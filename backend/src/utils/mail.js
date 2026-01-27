@@ -12,11 +12,30 @@ import nodemailer from 'nodemailer';
 
 // Create a transporter using environment variables
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  // service: 'gmail', // Replaced with custom config for better control
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true, // true for 465, false for other ports
   auth: {
-    user: process.env.RESET_SEND_EMAIL,
-    pass: process.env.RESET_SEND_APP_PASS,
+    user: (process.env.RESET_SEND_EMAIL || '').trim(),
+    pass: (process.env.RESET_SEND_APP_PASS || '').replace(/\s/g, ''),
   },
+});
+
+// Verify connection configuration on startup
+transporter.verify(function (error, success) {
+  if (error) {
+    console.error("❌ [Mail Service] Connection Failed:", error);
+    const pass = (process.env.RESET_SEND_APP_PASS || '').replace(/\s/g, '');
+    console.error("DEBUG INFO: Email:", process.env.RESET_SEND_EMAIL);
+    console.error("DEBUG INFO: Original Length:", (process.env.RESET_SEND_APP_PASS || '').length);
+    console.error("DEBUG INFO: Processed Length:", pass.length);
+    console.error("DEBUG INFO: Starts With:", pass.substring(0, 1));
+    console.error("DEBUG INFO: Ends With:", pass.substring(pass.length - 1));
+  } else {
+    console.log("✅ [Mail Service] Server is ready to take our messages");
+    console.log(`[Mail Service] Sending from: ${process.env.RESET_SEND_EMAIL}`);
+  }
 });
 
 /**

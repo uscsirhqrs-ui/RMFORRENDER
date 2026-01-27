@@ -76,10 +76,12 @@ const ActivationPage: React.FC = () => {
                         <div className="pt-4">
                             <Button
                                 onClick={() => navigate('/login')}
-                                className="w-full flex flex-row items-center justify-center gap-2 group whitespace-nowrap"
+                                icon={<ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
+                                iconPosition="right"
+                                fullWidth
+                                className="group"
                             >
                                 Continue to Login
-                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                             </Button>
                         </div>
                     </div>
