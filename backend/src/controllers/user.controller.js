@@ -488,6 +488,50 @@ const activateAccount = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Resends the activation link to a user.
+ * 
+ * @param {Object} req - Express request object containing email
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} Sends a JSON response confirming email sent
+ */
+const resendActivationEmail = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiErrors("Email is required", 400);
+  }
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    throw new ApiErrors("User not found with this email", 404);
+  }
+
+  if (user.isActivated) {
+    throw new ApiErrors("Account is already activated. Please login.", 400);
+  }
+
+  // Generate new token
+  const activationToken = user.generateActivationToken();
+  user.activationToken = activationToken;
+  await user.save({ validateBeforeSave: false });
+
+  const activationUrl = `${getBaseUrl()}/activate-account?token=${activationToken}&userId=${user._id}`;
+
+  // Send Email - NON-BLOCKING
+  sendEmail({
+    to: email,
+    subject: "CSIR- Reference Management Portal - New Activation Link",
+    html: `<p>You requested a new activation link. Please click <a href="${activationUrl}">here</a> to activate your account.</p>`
+  });
+
+  // Log Activity
+  logActivity(req, "USER_RESEND_ACTIVATION", "User", user._id, null, user._id);
+
+  return res.status(200).json(new ApiResponse(200, "A new activation link has been sent to your email."));
+});
+
+/**
  * Bulk manually activates user accounts.
  */
 const bulkManualActivateUsers = asyncHandler(async (req, res) => {

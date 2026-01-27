@@ -13,7 +13,7 @@ import { Mail, Lock, LogIn, UserPlus } from "lucide-react";
 import InputField from "../../components/ui/InputField";
 import Button from "../../components/ui/Button";
 import ParichayOAuth from "../../components/oauth/ParichayOAuth";
-import { loginUser, registerUser } from "../../services/user.api";
+import { loginUser, registerUser, resendActivationLink } from "../../services/user.api";
 import { getAllowedDomains } from "../../services/settings.api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -27,6 +27,13 @@ const AuthPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
+  const [resendStatus, setResendStatus] = useState<{ loading: boolean; success: boolean | null; message: string | null }>({
+    loading: false,
+    success: null,
+    message: null
+  });
+
+  const isActivationError = error?.toLowerCase().includes("not activated") || error?.toLowerCase().includes("activation");
 
   useEffect(() => {
     // Fetch system settings
@@ -131,6 +138,26 @@ const AuthPage: React.FC = () => {
     }
   };
 
+  const handleResendActivation = async () => {
+    if (!email) {
+      setError("Please enter your email first");
+      return;
+    }
+
+    setResendStatus({ loading: true, success: null, message: null });
+    try {
+      const response = await resendActivationLink({ email });
+      if (response.success) {
+        setResendStatus({ loading: false, success: true, message: "A new activation link has been sent to your email." });
+        setError(null);
+      } else {
+        setResendStatus({ loading: false, success: false, message: response.message || "Failed to resend activation link" });
+      }
+    } catch (err) {
+      setResendStatus({ loading: false, success: false, message: "An unexpected error occurred" });
+    }
+  };
+
   return (
     <div className="min-h-[calc(100vh-160px)] flex items-center justify-center p-4 relative overflow-hidden">
       {/* Abstract Background Elements */}
@@ -166,9 +193,33 @@ const AuthPage: React.FC = () => {
                 ? "bg-green-50/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
                 : "bg-red-50/50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
                 }`}>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${error.includes("successful") || error.includes("activated") ? "bg-green-500" : "bg-red-500"}`}></div>
+                    <span className="flex-1">{error}</span>
+                  </div>
+                  {isLogin && isActivationError && !resendStatus.success && (
+                    <button
+                      type="button"
+                      onClick={handleResendActivation}
+                      disabled={resendStatus.loading}
+                      className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50 text-left pl-3.5"
+                    >
+                      {resendStatus.loading ? "Sending..." : "Resend Activation Link"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {resendStatus.message && (
+              <div className={`p-4 rounded-xl text-sm font-medium animate-in fade-in slide-in-from-top-4 duration-300 border ${resendStatus.success
+                ? "bg-green-50/50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800"
+                : "bg-red-50/50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
+                }`}>
                 <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${error.includes("successful") ? "bg-green-500" : "bg-red-500"}`}></div>
-                  {error}
+                  <div className={`w-1.5 h-1.5 rounded-full ${resendStatus.success ? "bg-green-500" : "bg-red-500"}`}></div>
+                  {resendStatus.message}
                 </div>
               </div>
             )}

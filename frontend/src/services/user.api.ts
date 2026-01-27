@@ -191,6 +191,28 @@ export const activateAccount = async (payload: {
   }
 };
 
+export const resendActivationLink = async (payload: {
+  email: string;
+}): Promise<ApiResponse> => {
+  try {
+    const response = await axios.post<ApiResponse>(
+      `${API_BASE_URL}/users/resend-activation`,
+      payload,
+      { withCredentials: true }
+    );
+    return {
+      success: response.data.success,
+      message: response.data.message,
+      data: response.data.data,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to resend activation link",
+    };
+  }
+};
+
 export const changePassword = async (payload: {
   oldPassword: string;
   newPassword: string;

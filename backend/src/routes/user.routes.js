@@ -32,7 +32,8 @@ import {
     updateUserAvailableRoles,
     migrateLabNames,
     manualActivateUser,
-    bulkManualActivateUsers
+    bulkManualActivateUsers,
+    resendActivationEmail
 } from '../controllers/user.controller.js';
 import { upload } from '../middlewares/multer.middleware.js';
 import { verifyJWT, checkPermission } from "../middlewares/auth.middleware.js";
@@ -59,6 +60,7 @@ router.route("/forgot-password").post(forgotPassword);
 router.route("/verify-token").post(verifyForgotPassToken);
 router.route("/reset-password").post(resetPassword);
 router.route("/activate-account").post(activateAccount);
+router.route("/resend-activation").post(resendActivationEmail);
 
 // secured routes
 router.route('/logout').post(verifyJWT, logoutUser);
