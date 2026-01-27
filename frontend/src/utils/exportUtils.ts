@@ -193,7 +193,8 @@ export const exportReferenceReportPDF = async (
     filename: string,
     exportedBy?: string,
     logoUrl?: string, // New parameter for branding
-    orientation: 'portrait' | 'landscape' = 'landscape' // Default to landscape
+    orientation: 'portrait' | 'landscape' = 'landscape', // Default to landscape
+    reportType?: string // Optional type: "Local Ref", "Global Ref", "VIP Ref"
 ) => {
     const doc = new jsPDF({ orientation });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -228,7 +229,7 @@ export const exportReferenceReportPDF = async (
         pageDoc.line(0, 0, pageWidth, 0);
 
         if (base64Logo) {
-            pageDoc.addImage(base64Logo, 'PNG', 14, 8, 40, 40, undefined, 'FAST');
+            pageDoc.addImage(base64Logo, 'PNG', 10, 8, 35, 35, undefined, 'FAST');
         }
 
         const rightMargin = pageWidth - 14;
@@ -237,32 +238,32 @@ export const exportReferenceReportPDF = async (
 
         pageDoc.setTextColor(79, 70, 229);
         pageDoc.setFont("helvetica", "bold");
-        pageDoc.setFontSize(orientation === 'landscape' ? 10 : 9);
+        pageDoc.setFontSize(orientation === 'landscape' ? 9 : 8);
         pageDoc.text("COUNCIL OF SCIENTIFIC & INDUSTRIAL RESEARCH", rightMargin, 15, { align: 'right' });
 
         if (isLocal && labName) {
-            pageDoc.setFontSize(orientation === 'landscape' ? 18 : 16);
-            pageDoc.text(labName.toUpperCase(), rightMargin, 28, { align: 'right' });
+            pageDoc.setFontSize(orientation === 'landscape' ? 15 : 13);
+            pageDoc.text(labName.toUpperCase(), rightMargin, 26, { align: 'right' });
             pageDoc.setTextColor(31, 41, 55);
-            pageDoc.setFontSize(orientation === 'landscape' ? 24 : 20);
-            pageDoc.text("Reference Movement Details", rightMargin, 42, { align: 'right' });
-            pageDoc.setFontSize(orientation === 'landscape' ? 9 : 8);
-            pageDoc.setFont("helvetica", "normal");
-            pageDoc.setTextColor(107, 114, 128);
-            pageDoc.text("CSIR Reference Management System", rightMargin, 50, { align: 'right' });
-        } else {
-            pageDoc.setTextColor(31, 41, 55);
-            pageDoc.setFontSize(orientation === 'landscape' ? 26 : 22);
-            pageDoc.text("Reference Movement Details", rightMargin, 35, { align: 'right' });
-            pageDoc.setFontSize(orientation === 'landscape' ? 11 : 10);
+            pageDoc.setFontSize(orientation === 'landscape' ? 20 : 18);
+            pageDoc.text("Reference Movement Details", rightMargin, 38, { align: 'right' });
+            pageDoc.setFontSize(orientation === 'landscape' ? 8 : 7);
             pageDoc.setFont("helvetica", "normal");
             pageDoc.setTextColor(107, 114, 128);
             pageDoc.text("CSIR Reference Management System", rightMargin, 45, { align: 'right' });
+        } else {
+            pageDoc.setTextColor(31, 41, 55);
+            pageDoc.setFontSize(orientation === 'landscape' ? 22 : 20);
+            pageDoc.text("Reference Movement Details", rightMargin, 32, { align: 'right' });
+            pageDoc.setFontSize(orientation === 'landscape' ? 10 : 9);
+            pageDoc.setFont("helvetica", "normal");
+            pageDoc.setTextColor(107, 114, 128);
+            pageDoc.text("CSIR Reference Management System", rightMargin, 42, { align: 'right' });
         }
 
         pageDoc.setDrawColor(229, 231, 235);
         pageDoc.setLineWidth(0.5);
-        pageDoc.line(14, 58, pageWidth - 14, 58);
+        pageDoc.line(14, 54, pageWidth - 14, 54);
     };
 
     const drawFooter = (pageDoc: jsPDF, pageNumber: number, totalPages: number) => {
@@ -297,20 +298,21 @@ export const exportReferenceReportPDF = async (
     };
 
     // 2. Reference Summary Section
-    let currentY = 70;
+    let currentY = 65;
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Reference Details", 14, currentY);
+    doc.text("Reference Details :", 14, currentY);
     currentY += 2;
     doc.setDrawColor(229, 231, 235);
-    doc.line(14, currentY, pageWidth - 14, currentY);
-    currentY += 8;
+    //doc.line(14, currentY, pageWidth - 14, currentY);
+    currentY += 5;
 
     // Data Grid for Reference Info
     const details = [
         ["Subject:", reference.subject || "N/A"],
         ["Ref ID:", reference.refId || "N/A"],
+        ["Ref Type:", reportType || "N/A"],
         ["Status:", reference.status || "N/A"],
         ["Priority:", reference.priority || "N/A"],
         ["Delivery Mode:", reference.deliveryMode || "N/A"],
@@ -341,12 +343,12 @@ export const exportReferenceReportPDF = async (
         currentY = 70;
     }
 
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Movement History", 14, currentY);
+    doc.text(`Movement History for- ${reference.refId + ' :' || 'N/A'}`, 14, currentY);
     currentY += 2;
-    doc.line(14, currentY, pageWidth - 14, currentY);
-    currentY += 8;
+    //doc.line(14, currentY, pageWidth - 14, currentY);
+    currentY += 5;
 
     const movementHeaders = ["Date", "Action By", "Status", "Remarks", "Marked To"];
     const movementRows = movements.map(m => [

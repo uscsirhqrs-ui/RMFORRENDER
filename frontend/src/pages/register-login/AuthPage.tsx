@@ -154,7 +154,7 @@ const AuthPage: React.FC = () => {
               </h2>
               <p className="text-gray-500 dark:text-gray-400 font-medium text-base">
                 {isLogin
-                  ? "Login to manage your references"
+                  ? "Login to manage your references and data"
                   : "Join our platform for researchers"}
               </p>
             </div>

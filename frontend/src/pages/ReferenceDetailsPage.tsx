@@ -210,7 +210,16 @@ function ReferenceDetailsPage() {
         const title = `${refType === 'LocalReference' ? 'Local' : 'Global'} Reference Movement Report`;
         const exportedBy = currentUser ? `${currentUser.fullName} (${currentUser.email})` : 'System';
 
-        await exportReferenceReportPDF(reference, movements, title, filename, exportedBy, logo2, printOrientation);
+        await exportReferenceReportPDF(
+            reference,
+            movements,
+            title,
+            filename,
+            exportedBy,
+            logo2,
+            printOrientation,
+            refType === 'LocalReference' ? 'Local Ref' : 'Global Ref'
+        );
     };
 
     const openUserProfile = (userId: string) => {
@@ -439,7 +448,7 @@ function ReferenceDetailsPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 pt-2">
+                                <div className="flex flex-wrap items-center gap-2 pt-2">
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-[10px] font-bold border border-red-100 uppercase tracking-wider">
                                         <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
                                         {reference.status}
@@ -447,27 +456,17 @@ function ReferenceDetailsPage() {
                                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-slate-50 text-slate-600 text-[10px] font-bold border border-slate-200 uppercase tracking-wider">
                                         {reference.priority === 'High' ? '↑' : reference.priority === 'Medium' ? '→' : '↓'} {reference.priority} Priority
                                     </span>
+                                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold border shadow-sm uppercase tracking-wider ${refType === 'LocalReference'
+                                        ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                        }`}>
+                                        {refType === 'LocalReference' ? <Building2 className="w-3.5 h-3.5" /> : <Globe className="w-3.5 h-3.5" />}
+                                        {refType === 'LocalReference' ? 'Local Ref' : 'Global Ref'}
+                                    </span>
                                 </div>
                             </div>
 
-                            {/* Actions Area */}
-                            <div className="flex flex-row items-center justify-between gap-4 pt-4 border-t border-gray-50">
-                                <Button
-                                    label="Update Reference"
-                                    variant="primary"
-                                    className="flex-1 h-11 shadow-lg shadow-indigo-500/20 font-heading text-xs font-bold uppercase tracking-widest disabled:opacity-50"
-                                    onClick={() => setIsUpdateModalOpen(true)}
-                                    disabled={!canUpdate}
-                                />
-                                <div className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold border shadow-sm ${refType === 'LocalReference'
-                                    ? 'bg-orange-50 text-orange-700 border-orange-200'
-                                    : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                    }`}>
-                                    {refType === 'LocalReference' ? <Building2 className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                                    <span className="hidden sm:inline italic">Type: </span>
-                                    {refType === 'LocalReference' ? 'Local Ref' : 'Global Ref'}
-                                </div>
-                            </div>
+
                         </div>
 
                         <div className="mb-6">
@@ -599,7 +598,17 @@ function ReferenceDetailsPage() {
                             </div>
                         </div>
 
-                        <div className="mt-8 pt-6 border-t border-slate-50 text-center animate-text-gradient">
+                        <div className="mt-8 pt-6 border-t border-slate-50">
+                            <Button
+                                label="Update Reference"
+                                variant="primary"
+                                className="w-full h-11 shadow-lg shadow-indigo-500/20 font-heading text-xs font-bold uppercase tracking-widest disabled:opacity-50"
+                                onClick={() => setIsUpdateModalOpen(true)}
+                                disabled={!canUpdate}
+                            />
+                        </div>
+
+                        <div className="mt-4 text-center animate-text-gradient">
                             <p className="text-[11px] text-slate-400 mb-4 italic px-2 wrap-break-word">Update button will be enabled only if the reference is currently assigned to you</p>
                             <p className="text-[11px] font-bold text-slate-300 px-2 wrap-break-word">© {new Date().getFullYear()} Council of Scientific & Industrial Research</p>
                         </div>
