@@ -824,7 +824,7 @@ export default function SharedWithMePage() {
                     isOpen={!!viewingChainForm}
                     onClose={() => setViewingChainForm(null)}
                     form={viewingChainForm}
-                    currentUser={user}
+
                     onViewProfile={setViewingProfileId}
                 />
             )}

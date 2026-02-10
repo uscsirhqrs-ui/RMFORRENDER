@@ -8,7 +8,7 @@
  * @since 2026-02-09
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { X, GitCommit } from 'lucide-react';
 import { getChainDetails } from '../../services/form.api';
@@ -20,7 +20,7 @@ interface DelegationChainModalProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     form: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    currentUser: any;
+    // currentUser: any;
     onViewProfile: (userId: string) => void;
 }
 
@@ -29,7 +29,7 @@ export default function DelegationChainModal({ isOpen, onClose, form }: Delegati
     const [timeline, setTimeline] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [error, setError] = useState('');
+    const [_error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen && form) {

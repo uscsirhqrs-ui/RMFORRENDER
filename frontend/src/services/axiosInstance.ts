@@ -44,7 +44,7 @@ axiosInstance.interceptors.response.use(
             if (isRefreshing) {
                 return new Promise(function (resolve, reject) {
                     failedQueue.push({ resolve, reject });
-                }).then(token => {
+                }).then(_token => {
                     return axiosInstance(originalRequest);
                 }).catch(err => {
                     return Promise.reject(err);

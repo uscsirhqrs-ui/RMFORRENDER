@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Search, UserPlus, Loader2, CheckCircle2, Sliders, Calendar, Users, Settings, ArrowRight, ArrowLeft } from 'lucide-react';
+import { X, Share2, Search, UserPlus, Loader2, CheckCircle2, Sliders, Calendar, Users, Settings, ArrowRight } from 'lucide-react';
 import Button from './Button';
 import { getAllUsers } from '../../services/user.api';
 import { shareBlueprintCopy } from '../../services/form.api';

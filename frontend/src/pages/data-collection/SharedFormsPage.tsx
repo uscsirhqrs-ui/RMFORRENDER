@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {
     getSharedWithMe, getSharedByMe,
-    getFormTemplateById, submitFormData, deleteFormTemplate, updateFormTemplate,
+    getActiveFormById, submitFormData, deleteActiveForm, updateActiveForm,
     getFormSubmissions, updateFormData, toggleArchiveStatus
 } from '../../services/form.api';
 import FormSubmissionsView from '../../components/ui/FormSubmissionsView';
@@ -185,7 +185,7 @@ export default function SharedFormsPage() {
 
     const handleFillClick = async (templateId: string) => {
         try {
-            const response = await getFormTemplateById(templateId);
+            const response = await getActiveFormById(templateId);
             if (response.success) {
                 const template = response.data;
                 setSelectedTemplate(template);
@@ -284,7 +284,7 @@ export default function SharedFormsPage() {
         });
         if (!confirmed) return;
         try {
-            const response = await deleteFormTemplate(id);
+            const response = await deleteActiveForm(id);
             if (response.success) {
                 fetchForms();
             }
@@ -300,7 +300,7 @@ export default function SharedFormsPage() {
         if (togglingId === id) return;
         setTogglingId(id);
         try {
-            const response = await updateFormTemplate(id, { isActive: !currentStatus, notifyUsers: false });
+            const response = await updateActiveForm(id, { isActive: !currentStatus, notifyUsers: false });
             if (response.success) {
                 setForms(prev => prev.map(f => f._id === id ? { ...f, isActive: !currentStatus } : f));
 

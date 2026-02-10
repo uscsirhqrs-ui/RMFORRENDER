@@ -27,7 +27,7 @@ export default defineConfig({
     // Proxy API requests to backend during development
     proxy: {
       '/api': {
-        target: 'https://localhost:8000', // Update target to HTTPS backend
+        target: 'https://rmforrender.onrender.com', // Update target to HTTPS backend
         changeOrigin: true,
         secure: false, // Accept self-signed certs
         rewrite: (path) => path.replace(/^\/api/, '/api')
