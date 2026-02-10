@@ -8,8 +8,8 @@
  * @since 2026-02-09
  */
 
-import React, { useState, useEffect } from 'react';
-import { X, Share2, Search, UserPlus, Loader2, CheckCircle2, Sliders, Calendar, Users, Settings, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, type FC } from 'react';
+import { X, Share2, Search, UserPlus, Loader2, CheckCircle2, Sliders, Calendar, Users, Settings, ArrowRight } from 'lucide-react';
 import Button from './Button';
 import { getAllUsers } from '../../services/user.api';
 import { shareBlueprintCopy } from '../../services/form.api';
@@ -35,7 +35,7 @@ const steps = [
     { number: 3, title: 'Select Recipients', icon: Users }
 ];
 
-const ShareBlueprintModal: React.FC<ShareBlueprintModalProps> = ({
+const ShareBlueprintModal: FC<ShareBlueprintModalProps> = ({
     isOpen,
     onClose,
     blueprintId,

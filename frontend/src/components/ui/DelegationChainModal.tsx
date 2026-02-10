@@ -8,7 +8,7 @@
  * @since 2026-02-09
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { X, GitCommit } from 'lucide-react';
 import { getChainDetails } from '../../services/form.api';
@@ -28,8 +28,7 @@ export default function DelegationChainModal({ isOpen, onClose, form }: Delegati
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [timeline, setTimeline] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [error, setError] = useState('');
+    // Error state removed — log errors to console instead of keeping unused state
 
     useEffect(() => {
         if (isOpen && form) {
@@ -41,10 +40,10 @@ export default function DelegationChainModal({ isOpen, onClose, form }: Delegati
                         if (response.success && 'data' in response && response.data) {
                             setTimeline(response.data);
                         } else {
-                            setError('Failed to load chain details');
+                            console.error('Failed to load chain details');
                         }
                     })
-                    .catch(() => setError('Failed to load chain details'))
+                    .catch((e) => console.error('Failed to load chain details', e))
                     .finally(() => setLoading(false));
             } else {
                 // No assignment (e.g. Creator looking at undelivered form?)
