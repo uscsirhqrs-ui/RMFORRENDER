@@ -1,5 +1,5 @@
 /**
- * @fileoverview Parichay OAuth Controller - Handles OAuth flow with Parichay
+ * @fileoverview API Controller - Handles HTTP requests and business logic
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -28,7 +28,7 @@ import {
  */
 export const getParichayAuthorizationUrl = asyncHandler(async (req, res, next) => {
   try {
-    
+
     const parichayUrl = process.env.PARICHAY_URL;
     const clientId = process.env.PARICHAY_CLIENT_ID;
     const clientSecret = process.env.PARICHAY_CLIENT_SECRET;
@@ -85,7 +85,7 @@ export const handleParichayCallback = asyncHandler(async (req, res, next) => {
   try {
     const { code, state, codeVerifier, storedState } = req.body;
 
-    
+
 
     if (!code || !codeVerifier) {
       throw new ApiErrors("Authorization code and code verifier are required", 400);
@@ -170,7 +170,7 @@ export const handleParichayCallback = asyncHandler(async (req, res, next) => {
         isActivated: true, // Assume activated via Parichay
       });
 
-      console.log(`New Parichay user created: ${parichayEmail}`);
+
     } else {
       // Update existing user with new tokens
       user.parichayAccessToken = access_token;
@@ -190,7 +190,7 @@ export const handleParichayCallback = asyncHandler(async (req, res, next) => {
 
       await user.save({ validateBeforeSave: false });
 
-      console.log(`Parichay user updated: ${parichayEmail}`);
+
     }
 
     // Generate JWT tokens for our system (same as regular login)
@@ -287,7 +287,7 @@ export const revokeParichayToken = asyncHandler(async (req, res, next) => {
 
     // Attempt to revoke token with Parichay
     const { revokeAccessToken } = await import("../services/parichay.service.js");
-    
+
     try {
       await revokeAccessToken({
         parichayUrl: process.env.PARICHAY_URL,

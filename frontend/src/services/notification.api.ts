@@ -14,7 +14,7 @@ import axiosInstance from './axiosInstance';
 export interface Notification {
     _id: string;
     recipient: string;
-    type: 'NEW_USER_APPROVAL' | 'REOPEN_REQUEST' | 'REFERENCE_ASSIGNED' | 'REMINDER' | 'FORM_SHARED' | 'FORM_UPDATED' | 'PROFILE_UPDATE';
+    type: 'NEW_USER_APPROVAL' | 'REOPEN_REQUEST' | 'REFERENCE_ASSIGNED' | 'REMINDER' | 'FORM_SHARED' | 'FORM_UPDATED' | 'FORM_REMINDER' | 'PROFILE_UPDATE';
     title: string;
     message: string;
     referenceId?: string;

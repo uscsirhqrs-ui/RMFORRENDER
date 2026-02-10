@@ -9,11 +9,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { getFormSubmissions } from '../../services/form.api';
+import { getFormSubmissions, getChainByDataId } from '../../services/form.api';
 import DynamicFormRenderer, { type FormField } from './DynamicFormRenderer';
 import { Loader2, ChevronLeft, ChevronRight, User, Download, X } from 'lucide-react';
 import UserProfileViewModal from './UserProfileViewModal';
 import Papa from 'papaparse';
+import { MovementHistory } from './MovementHistory';
+import { generateSubmissionPDF } from '../../utils/pdfGenerator';
 
 interface FormSubmissionsViewProps {
     templateId: string;
@@ -30,6 +32,10 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [viewingProfileUserId, setViewingProfileUserId] = useState<string | null>(null);
+
+    // Chain History State
+    const [chainHistory, setChainHistory] = useState<any[]>([]);
+    const [chainLoading, setChainLoading] = useState(false);
 
     useEffect(() => {
         const fetchSubmissions = async () => {
@@ -48,6 +54,27 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
             fetchSubmissions();
         }
     }, [templateId]);
+
+    // Fetch chain when current submission changes
+    useEffect(() => {
+        if (submissions.length > 0 && submissions[currentIndex]) {
+            const currentSub = submissions[currentIndex];
+            if (currentSub._id) {
+                setChainLoading(true);
+                getChainByDataId(currentSub._id)
+                    .then((res: any) => {
+                        if (res.success && res.data) {
+                            setChainHistory(res.data);
+                        } else {
+                            // Fallback to empty if failed, though explicit failure handling might be better
+                            setChainHistory([]);
+                        }
+                    })
+                    .catch(() => setChainHistory([]))
+                    .finally(() => setChainLoading(false));
+            }
+        }
+    }, [submissions, currentIndex]);
 
     const handleNext = () => {
         if (currentIndex < submissions.length - 1) {
@@ -68,12 +95,12 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
         const flattenData = submissions.map(sub => {
             const flat: Record<string, any> = {
                 "Submitted By": sub.submittedBy?.fullName || "Unknown",
-                "Email": sub.submittedBy?.email || "",
-                "Phone": sub.submittedBy?.phoneNumber || "",
-                "Designation": sub.submittedBy?.designation || "",
-                "Lab/Institution": sub.labName || "",
+                "Submitter Email": sub.submittedBy?.email || "",
+                "Submitter Phone": sub.submittedBy?.mobileNo || "",
+                "Submitter Designation": sub.submittedBy?.designation || "",
+                "Submitter Lab/Institution": sub.labName || "",
                 "Submission Date": new Date(sub.createdAt).toLocaleString(),
-                "IP Address": sub.ipAddress || "Not Captured",
+                "Submitter IP Address": sub.ipAddress || "Not Captured",
             };
 
             // Add Form Fields
@@ -152,6 +179,18 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
     // Determine if we should show navigation controls (Next/Previous)
     const showControls = submissions.length > 1;
 
+    const handleDownloadPDF = async () => {
+        const currentSubmission = submissions[currentIndex];
+        if (!currentSubmission) return;
+
+        // Use chainHistory state which is already fetched for the current submission
+        await generateSubmissionPDF(
+            currentSubmission,
+            formSchema,
+            chainHistory
+        );
+    };
+
     return (
         <div className="flex flex-col h-full bg-white">
             {/* Header */}
@@ -173,6 +212,13 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleDownloadPDF}
+                        className="flex items-center gap-2 px-3 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-xs font-bold tracking-wider mr-2 border border-indigo-200 transition-colors"
+                        title="Download PDF"
+                    >
+                        <Download className="w-4 h-4" /> Download PDF
+                    </button>
                     <button
                         onClick={handleExport}
                         className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-bold tracking-wider mr-2 border border-emerald-200 transition-colors"
@@ -256,6 +302,16 @@ const FormSubmissionsView: React.FC<FormSubmissionsViewProps> = ({ templateId, f
                             readOnly={true}
                         />
                     </div>
+
+                    {/* Movement History / Workflow Trail - Updated to use reusable Component */}
+                    {(chainLoading || (chainHistory && chainHistory.length > 0)) && (
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <MovementHistory
+                                history={chainHistory}
+                                isLoading={chainLoading}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="px-6 py-4 border-t border-gray-100 bg-white flex justify-end">

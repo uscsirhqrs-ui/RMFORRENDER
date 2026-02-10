@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Page for managing Local References
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -678,11 +678,24 @@ function LocalReferencesPage() {
                                     row.status !== 'Closed' &&
                                     markedToEmails.includes(user.email);
 
+                                const getTooltipMessage = () => {
+                                    if (row.status === 'Closed') {
+                                        return "Cannot select closed references";
+                                    }
+                                    if (!markedToEmails.includes(user?.email || '')) {
+                                        return "You can only select references currently assigned to you";
+                                    }
+                                    return "Select this reference for bulk action";
+                                };
+
                                 return (
-                                    <div className="flex justify-center" title={!isMarkedToMe ? "You can only select references marked to you" : undefined}>
+                                    <div className="flex justify-center" title={getTooltipMessage()}>
                                         <input
                                             type="checkbox"
-                                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                                            className={`w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 transition-all ${isMarkedToMe
+                                                ? 'cursor-pointer hover:scale-110'
+                                                : 'opacity-20 cursor-not-allowed grayscale'
+                                                }`}
                                             checked={selectedIds.has(row._id)}
                                             onChange={() => isMarkedToMe && handleSelectRow(row._id)}
                                             onClick={(e) => e.stopPropagation()}
@@ -920,6 +933,7 @@ function LocalReferencesPage() {
                 onClose={() => setIsBulkAssignModalOpen(false)}
                 onSuccess={() => {
                     fetchReferences();
+                    fetchStats();
                     setSelectedIds(new Set());
                 }}
                 selectedIds={Array.from(selectedIds)}

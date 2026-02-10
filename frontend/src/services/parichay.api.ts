@@ -1,5 +1,5 @@
 /**
- * @fileoverview Parichay OAuth API Service - Frontend API calls for Parichay OAuth flow
+ * @fileoverview API Service - Handles HTTP client requests
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

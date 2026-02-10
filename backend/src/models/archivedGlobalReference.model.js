@@ -1,5 +1,5 @@
 /**
- * @fileoverview Data Model - Defines database schema for Archived Global References
+ * @fileoverview Data Model - Defines database schema and model methods
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

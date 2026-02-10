@@ -14,7 +14,7 @@ const collectedDataSchema = new Schema(
   {
     templateId: {
       type: Schema.Types.ObjectId,
-      ref: 'FormTemplate',
+      ref: 'ActiveForm',
       required: true,
     },
     labName: {
@@ -32,6 +32,25 @@ const collectedDataSchema = new Schema(
       of: Schema.Types.Mixed,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ['Edited', 'Approved', 'Submitted'],
+      default: 'Edited',
+    },
+    movementHistory: [
+      {
+        performedBy: {
+          type: Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        action: String,
+        remarks: String,
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     ipAddress: {
       type: String,
       required: false,

@@ -361,3 +361,19 @@
 .animate-blink {
   animation: blink 1s infinite;
 }
+
+@keyframes row-flash {
+
+  0%,
+  100% {
+    background-color: transparent;
+  }
+
+  50% {
+    background-color: rgba(147, 51, 234, 0.1);
+  }
+}
+
+.animate-row-flash {
+  animation: row-flash 2s infinite !important;
+}

@@ -1,3 +1,13 @@
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import React from 'react';
 import { AlertCircle, CheckCircle, Info, XCircle } from 'lucide-react';
 
@@ -6,13 +16,17 @@ export type MessageBoxType = 'success' | 'error' | 'warning' | 'info';
 interface MessageBoxProps {
     isOpen: boolean;
     title?: string;
-    message: string;
+    message: React.ReactNode;
     type?: MessageBoxType;
     showCancelButton?: boolean;
     confirmText?: string;
     cancelText?: string;
-    onOk: () => void;
+    onOk: (inputValue?: string) => void;
     onClose: () => void;
+    showInput?: boolean;
+    inputPlaceholder?: string;
+    inputLabel?: string;
+    initialValue?: string;
 }
 
 const MessageBox: React.FC<MessageBoxProps> = ({
@@ -25,7 +39,17 @@ const MessageBox: React.FC<MessageBoxProps> = ({
     cancelText = 'Cancel',
     onOk,
     onClose,
+    showInput = false,
+    inputPlaceholder = '',
+    inputLabel = 'Remarks',
+    initialValue = ''
 }) => {
+    const [inputValue, setInputValue] = React.useState('');
+
+    React.useEffect(() => {
+        if (isOpen) setInputValue(initialValue || '');
+    }, [isOpen, initialValue]);
+
     if (!isOpen) return null;
 
     const getIcon = () => {
@@ -52,7 +76,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
     };
 
     const handleOk = () => {
-        if (onOk) onOk();
+        if (onOk) onOk(inputValue);
         onClose();
     };
 
@@ -70,7 +94,7 @@ const MessageBox: React.FC<MessageBoxProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200">
+        <div className="fixed inset-0 flex items-center justify-center z-99999 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div
                 className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden transform transition-all animate-in zoom-in-95 duration-200 border border-gray-100"
                 role="dialog"
@@ -89,6 +113,18 @@ const MessageBox: React.FC<MessageBoxProps> = ({
                         <div className="text-gray-600 text-sm leading-relaxed mb-6">
                             {message}
                         </div>
+
+                        {showInput && (
+                            <div className="w-full mb-6 text-left">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1 mb-1 block">{inputLabel}</label>
+                                <textarea
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
+                                    placeholder={inputPlaceholder}
+                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all text-sm min-h-[80px] resize-none"
+                                />
+                            </div>
+                        )}
 
                         <div className="flex justify-end gap-3 w-full">
                             {showCancelButton && (

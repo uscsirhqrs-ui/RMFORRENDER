@@ -47,7 +47,7 @@ const ForgotPassword = () => {
     try {
       // Simulate API call (replace with your actual API endpoint and fetch logic)
       const response = await sendPasswordResetLink({ email })
-      console.log("returened from backend:", response.success)
+
 
       // Use response properties (adjust based on your ApiResponse interface)
       if (response.success) {

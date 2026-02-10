@@ -1,5 +1,5 @@
 /**
- * @fileoverview API Controller - Handles Local Reference operations with Lab isolation
+ * @fileoverview API Controller - Handles HTTP requests and business logic
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -222,25 +222,40 @@ export const createLocalReference = asyncHandler(async (req, res) => {
             fullName: req.user.fullName,
             email: req.user.email,
             labName: req.user.labName,
-            designation: req.user.designation
+            designation: req.user.designation,
+            division: req.user.division
         },
         markedToDetails: [{
             _id: markedToUser._id,
             fullName: markedToUser.fullName,
             email: markedToUser.email,
             labName: markedToUser.labName,
-            designation: markedToUser.designation
+            designation: markedToUser.designation,
+            division: markedToUser.division
         }]
     });
-
     await newReference.save();
 
     // Initial Movement
     const movement = new LocalMovement({
         reference: newReference._id,
-        // onModel: 'LocalReference', // Optional or remove if schema doesn't need it
         markedTo: newReference.markedTo,
         performedBy: req.user._id,
+        performedByDetails: {
+            fullName: req.user.fullName,
+            email: req.user.email,
+            labName: req.user.labName,
+            designation: req.user.designation,
+            division: req.user.division
+        },
+        markedToDetails: [{
+            _id: markedToUser._id,
+            fullName: markedToUser.fullName,
+            email: markedToUser.email,
+            labName: markedToUser.labName,
+            designation: markedToUser.designation,
+            division: markedToUser.division
+        }],
         statusOnMovement: newReference.status,
         remarks: remarks || 'Local reference created.',
         movementDate: new Date()
@@ -251,26 +266,28 @@ export const createLocalReference = asyncHandler(async (req, res) => {
         after: newReference.toObject()
     });
 
-    // Notifications
-    try {
-        const creatorName = getUserDisplayName(req.user);
-        await sendEmail({
-            to: markedToUser.email,
-            subject: `New Local Reference: ${newReference.subject} [${newReference.refId}]`,
-            html: getNewReferenceEmailTemplate(newReference, creatorName)
-        });
+    // Notifications (Non-blocking)
+    (async () => {
+        try {
+            const creatorName = getUserDisplayName(req.user);
+            await sendEmail({
+                to: markedToUser.email,
+                subject: `New Local Reference: ${newReference.subject} [${newReference.refId}]`,
+                html: getNewReferenceEmailTemplate(newReference, creatorName)
+            });
 
-        await createNotification(
-            markedTo,
-            'REFERENCE_ASSIGNED',
-            'New Local Reference',
-            `You have been assigned a new local reference: ${subject}`,
-            newReference._id,
-            'LocalReference'
-        );
-    } catch (error) {
-        console.error("Notification failed for local reference:", error);
-    }
+            await createNotification(
+                markedTo,
+                'REFERENCE_ASSIGNED',
+                'New Local Reference',
+                `You have been assigned a new local reference: ${subject}`,
+                newReference._id,
+                'LocalReference'
+            );
+        } catch (error) {
+            console.error("Notification failed for local reference:", error);
+        }
+    })();
 
     res.status(201).json(new ApiResponse(201, 'Local reference created successfully', newReference));
 });
@@ -279,10 +296,7 @@ export const createLocalReference = asyncHandler(async (req, res) => {
  * Get Local Reference by ID
  */
 export const getLocalReferenceById = asyncHandler(async (req, res) => {
-    const reference = await LocalReference.findById(req.params.id)
-        .populate('createdBy markedTo', 'fullName email labName designation division')
-        .populate('reopenRequest.requestedBy', 'fullName email labName designation division')
-        .lean();
+    const reference = await LocalReference.findById(req.params.id).lean();
 
     if (!reference) {
         throw new ApiErrors('Local reference not found', 404);
@@ -309,7 +323,6 @@ export const getLocalReferenceById = asyncHandler(async (req, res) => {
     }
 
     const movements = await LocalMovement.find({ reference: reference._id })
-        .populate('markedTo performedBy', 'fullName email labName designation division')
         .sort({ movementDate: 1 })
         .lean();
 
@@ -362,15 +375,17 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
         throw new ApiErrors('Invalid or empty IDs array', 400);
     }
 
+
+
     const hasGlobalAdmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
     const hasLocalAdmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
 
-    if (!hasGlobalAdmin && !hasLocalAdmin) {
-        throw new ApiErrors('Forbidden: Only Admins can perform bulk actions', 403);
-    }
+    // NOTE: We removed the admin-only check here. Regular users can now bulk assign references marked to them.
+    // Admins have broader permissions (can manage any reference in their scope).
+    // The actual ownership validation happens later in the 'assign' action case.
 
-    // Verify all IDs belong to user's lab if only local admin
-    if (!hasGlobalAdmin && hasLocalAdmin) {
+    // Verify all IDs belong to user's lab if only local admin (or regular user)
+    if (!hasGlobalAdmin) {
         const count = await LocalReference.countDocuments({
             _id: { $in: ids },
             labName: req.user.labName
@@ -443,45 +458,46 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
             // Fetch all refs to validate
             const refsToAssign = await LocalReference.find({ _id: { $in: ids } });
 
-            // Validate and process each
+            // UPFRONT VALIDATION: Check all references before processing any
+            const validationErrors = [];
+            const isAdmin = hasGlobalAdmin || hasLocalAdmin;
+
+
+
             for (const ref of refsToAssign) {
-                // 1. Ownership Check (Strict per request)
+                // 1. Ownership Check
                 const isMarkedToUser = Array.isArray(ref.markedTo)
-                    ? ref.markedTo.some(id => id.toString() === req.user._id.toString())
+                    ? ref.markedTo.some(id => {
+                        const idStr = id.toString();
+                        const userIdStr = req.user._id.toString();
+                        return idStr === userIdStr;
+                    })
                     : ref.markedTo && ref.markedTo.toString() === req.user._id.toString();
 
-                const isAdmin = hasGlobalAdmin || hasLocalAdmin; // Defined above in the function
 
                 if (!isMarkedToUser && !isAdmin) {
-                    throw new ApiErrors(`Forbidden: You can only reassign references currently marked to you. Ref: ${ref.refId}`, 403);
+                    validationErrors.push({
+                        refId: ref.refId,
+                        reason: 'Not currently assigned to you'
+                    });
                 }
-
-                // 2. Prepare updates (This part needs to be done individually or constructed for updateMany if data is same)
-                // Since we need to update `markedToDetails`, `participants`, `priority` etc, and it involves arrays,
-                // it's safer to loop and save, OR use bulkWrite. Loop is okay for bulk size < 50.
-                // let's assume updateMany for simple fields, but here we have complex logic.
-                // Actually, the Global controller iterates? No, Global uses `updateMany` for status, but `assign` might be complex.
-                // Let's see Global implementation... Global controller wasn't shown fully in `assign` case.
-                // I'll use a loop to be safe and ensure `participants` and `history` are updated correctly.
             }
 
-            // We'll perform updates in a loop to ensure data integrity (Participants, History)
-            // Limitation: Slower for massive bulk, but safer.
+
+
+            // If any validation errors, throw detailed error
+            if (validationErrors.length > 0) {
+                const errorDetails = validationErrors.map(e => `${e.refId} (${e.reason})`).join(', ');
+                throw new ApiErrors(
+                    `Cannot reassign ${validationErrors.length} reference(s): ${errorDetails}. You can only reassign references currently marked to you.`,
+                    403
+                );
+            }
+
+            // All validations passed, now process updates
             for (const refId of ids) {
                 const ref = await LocalReference.findById(refId);
                 if (!ref) continue;
-
-                // 1. Ownership Check (Repeated inside loop closely)
-                const isMarkedToUser = Array.isArray(ref.markedTo)
-                    ? ref.markedTo.some(id => id.toString() === req.user._id.toString())
-                    : ref.markedTo && ref.markedTo.toString() === req.user._id.toString();
-
-                // Re-check admin status or stricter rule?
-                // Providing Admin override as is standard, but user prompt "He should not be allowed" might mean "Regular User".
-                // I'll stick to: If not marked to user AND not Admin -> Throw.
-                if (!isMarkedToUser && !isAdmin) {
-                    throw new ApiErrors(`Forbidden: You can only reassign references currently marked to you. Ref: ${ref.refId}`, 403);
-                }
 
                 // Update fields
                 ref.markedTo = [targetUser._id];
@@ -490,7 +506,9 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
                     _id: targetUser._id,
                     fullName: targetUser.fullName,
                     email: targetUser.email,
-                    labName: targetUser.labName
+                    labName: targetUser.labName,
+                    designation: targetUser.designation,
+                    division: targetUser.division
                 }];
 
                 // Add to participants (Target and Actor)
@@ -511,6 +529,21 @@ export const bulkUpdateLocalReferences = asyncHandler(async (req, res, next) => 
                     reference: ref._id,
                     markedTo: ref.markedTo,
                     performedBy: req.user._id,
+                    performedByDetails: {
+                        fullName: req.user.fullName,
+                        email: req.user.email,
+                        labName: req.user.labName,
+                        designation: req.user.designation,
+                        division: req.user.division
+                    },
+                    markedToDetails: [{
+                        _id: targetUser._id,
+                        fullName: targetUser.fullName,
+                        email: targetUser.email,
+                        labName: targetUser.labName,
+                        designation: targetUser.designation,
+                        division: targetUser.division
+                    }],
                     statusOnMovement: ref.status,
                     remarks: finalRemarks,
                     movementDate: new Date()
@@ -676,7 +709,8 @@ export const updateLocalReference = asyncHandler(async (req, res) => {
         fullName: u.fullName,
         email: u.email,
         labName: u.labName,
-        designation: u.designation
+        designation: u.designation,
+        division: u.division
     }));
 
     // Add to participants (Both target and actor)
@@ -699,41 +733,51 @@ export const updateLocalReference = asyncHandler(async (req, res) => {
         // onModel: 'LocalReference',
         markedTo: reference.markedTo,
         performedBy: req.user._id,
+        performedByDetails: {
+            fullName: req.user.fullName,
+            email: req.user.email,
+            labName: req.user.labName,
+            designation: req.user.designation,
+            division: req.user.division
+        },
+        markedToDetails: reference.markedToDetails,
         statusOnMovement: reference.status,
         remarks: remarks || 'Local reference updated.',
         movementDate: new Date()
     });
     await movement.save();
 
-    // Notifications
-    try {
-        const actorName = getUserDisplayName(req.user);
-        for (const user of nextUsers) {
-            if (user._id.toString() !== req.user._id.toString()) {
-                // Email
-                if (user.email) {
-                    const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
-                    sendEmail({
-                        to: user.email,
-                        subject: `Local Reference Updated: ${reference.subject} [${reference.refId}]`,
-                        html: emailContent
-                    }).catch(err => console.error(`Failed to send email to ${user.email}:`, err));
-                }
+    // Notifications (Non-blocking)
+    (async () => {
+        try {
+            const actorName = getUserDisplayName(req.user);
+            for (const user of nextUsers) {
+                if (user._id.toString() !== req.user._id.toString()) {
+                    // Email
+                    if (user.email) {
+                        const emailContent = getUpdateReferenceEmailTemplate(reference, actorName, 'Update');
+                        sendEmail({
+                            to: user.email,
+                            subject: `Local Reference Updated: ${reference.subject} [${reference.refId}]`,
+                            html: emailContent
+                        }).catch(err => console.error(`Failed to send email to ${user.email}:`, err));
+                    }
 
-                // Internal Notification
-                await createNotification(
-                    user._id,
-                    'REFERENCE_ASSIGNED',
-                    'Local Reference Updated',
-                    `A local reference has been assigned or updated to you: ${reference.subject}`,
-                    reference._id,
-                    'LocalReference'
-                );
+                    // Internal Notification
+                    await createNotification(
+                        user._id,
+                        'REFERENCE_ASSIGNED',
+                        'Local Reference Updated',
+                        `A local reference has been assigned or updated to you: ${reference.subject}`,
+                        reference._id,
+                        'LocalReference'
+                    );
+                }
             }
+        } catch (error) {
+            console.error("Notification failed for local reference update:", error);
         }
-    } catch (error) {
-        console.error("Notification failed for local reference update:", error);
-    }
+    })();
 
     res.status(200).json(new ApiResponse(200, "Local reference updated successfully", reference));
 });
@@ -799,7 +843,13 @@ export const requestLocalReopen = asyncHandler(async (req, res) => {
         throw new ApiErrors("Reference is not closed", 400);
     }
 
+    // Generate Request ID
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const requestId = `REQ-${dateStr}-${randomSuffix}`;
+
     reference.reopenRequest = {
+        requestId,
         requestedBy: req.user._id,
         reason: remarks,
         requestedAt: new Date()
@@ -829,7 +879,7 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
     // Local Managers and Viewers are restricted to participation.
     const canSeeAllFilters = isSystemAdmin || hasGlobalAdmin;
 
-    console.log(`[LOCAL_FILTERS] User: ${req.user.email}, Lab: ${userLab}, canSeeAllFilters: ${canSeeAllFilters}`);
+
 
     // Base match criteria
     let matchCriteria = {};
@@ -918,6 +968,7 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
         });
         assignmentUsers = Array.from(markedToMap.values()).sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
 
+
         // Process other fields
         divs = (data.uniqueDivisions || []).map(d => d._id).filter(Boolean).sort();
         stats = (data.uniqueStatuses || []).map(d => d._id).filter(Boolean).sort();
@@ -925,9 +976,27 @@ export const getLocalReferenceFilters = asyncHandler(async (req, res) => {
         labs = (data.uniqueLabs || []).map(d => d._id).filter(Boolean).sort();
     }
 
+    // Fetch ALL approved users in the same lab for bulk assignment dropdown
+    // This is separate from markedToUsers which is used for filtering
+    const allLabUsers = await User.find({
+        labName: userLab,
+        status: 'Approved'
+    }).select('_id fullName email labName designation division').lean();
+
+    // Format all lab users
+    const formattedAllLabUsers = allLabUsers.map(u => ({
+        _id: u._id,
+        fullName: u.fullName,
+        email: u.email,
+        labName: u.labName,
+        designation: u.designation,
+        division: u.division
+    })).sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+
     res.status(200).json(new ApiResponse(200, 'Local reference filters fetched successfully', {
         createdByUsers: creationUsers,
-        markedToUsers: assignmentUsers,
+        markedToUsers: assignmentUsers, // Users from existing references (for filter dropdowns)
+        allLabUsers: formattedAllLabUsers, // All approved lab users (for bulk assign dropdown)
         divisions: divs,
         statuses: stats,
         priorities: prios,

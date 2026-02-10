@@ -54,13 +54,13 @@ export const loginUser = async (
   payload: LoginPayload
 ): Promise<ApiResponse> => {
   try {
-    console.log("before call loginUser...");
+
     const response = await axios.post<ApiResponse>(
       `${API_BASE_URL}/users/login`,
       payload,
       { withCredentials: true }
     );
-    console.log("after call loginUser...");
+
 
     return {
       success: response.data.success,
@@ -68,8 +68,7 @@ export const loginUser = async (
       data: response.data.data,
     };
   } catch (error: any) {
-    console.log("In error loginUser...");
-    console.log("error", error.response?.data?.message);
+
     return {
       success: false,
       message: error.response?.data?.message || "Login failed",
@@ -102,7 +101,7 @@ export const registerUser = async (
   payload: RegisterPayload
 ): Promise<ApiResponse> => {
   try {
-    console.log("before call registerUser...");
+
     const response = await axios.post<ApiResponse>(
       `${API_BASE_URL}/users/register`,
       payload,
@@ -125,7 +124,7 @@ export const sendPasswordResetLink = async (payload: {
   email: string;
 }): Promise<ApiResponse> => {
   try {
-    console.log("reached sendpasswordapi at frontend");
+
     const response = await axios.post<ApiResponse>(
       `${API_BASE_URL}/users/forgot-password`,
       payload,
@@ -149,7 +148,7 @@ export const verifyResetLink = async (payload: {
   token: string;
 }): Promise<ApiResponse> => {
   try {
-    console.log("reached verifyResetLink at frontend");
+
     const response = await axios.post<ApiResponse>(
       `${API_BASE_URL}/users/verify-reset-token`,
       payload,
@@ -241,7 +240,7 @@ export const resetPassword = async (payload: {
   newPassword: string | null;
 }): Promise<ApiResponse> => {
   try {
-    console.log("reached resetPassword at frontend");
+
     const response = await axios.post<ApiResponse>(
       `${API_BASE_URL}/users/reset-password`,
       payload,
@@ -282,6 +281,34 @@ export const updateProfile = async (
     return {
       success: false,
       message: error.response?.data?.message || "Failed to update profile",
+    };
+  }
+};
+
+/**
+ * Updates a specific user's profile (Admin only).
+ * @param userId - The ID of the user to update
+ * @param payload - Profile details
+ * @returns Promise with API response
+ */
+export const updateUserProfileById = async (
+  userId: string,
+  payload: UpdateProfilePayload
+): Promise<ApiResponse> => {
+  try {
+    const response = await axiosInstance.patch<ApiResponse>(
+      `/users/profile/${userId}`,
+      payload
+    );
+    return {
+      success: response.data.success,
+      message: response.data.message,
+      data: response.data.data,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || "Failed to update user profile",
     };
   }
 };
@@ -340,13 +367,26 @@ export const updateAvatar = async (
  * Fetches all users with pagination and search.
  * @returns Promise with API response
  */
-export const getAllUsers = async (page: number = 1, limit: number = 20, search: string = ""): Promise<ApiResponse> => {
+export const getAllUsers = async (
+  page: number = 1,
+  limit: number = 20,
+  search: string = "",
+  labBound: boolean = false,
+  filters: { status?: string[]; labName?: string[]; roles?: string[]; designation?: string[] } = {}
+): Promise<ApiResponse> => {
   try {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
-      search
+      search,
+      labBound: labBound.toString()
     });
+
+    if (filters.status && filters.status.length > 0) queryParams.append('status', filters.status.join(','));
+    if (filters.labName && filters.labName.length > 0) queryParams.append('labName', filters.labName.join(','));
+    if (filters.roles && filters.roles.length > 0) queryParams.append('roles', filters.roles.join(','));
+    if (filters.designation && filters.designation.length > 0) queryParams.append('designation', filters.designation.join(','));
+
     const response = await axiosInstance.get<ApiResponse>(
       `/users/getAllUsers?${queryParams}`
     );

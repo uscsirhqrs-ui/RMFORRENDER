@@ -389,7 +389,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
 
     if (refFilters && refFilters[0]) {
       const { divs, stats, prios } = extractValues(refFilters[0], createdByMap, markedToMap);
-      console.log(`[DEBUG_FILTERS] Global Admin Filters - Divs: ${divs.length}, Users: ${createdByMap.size + markedToMap.size}`);
+
       divs.forEach(d => allDivs.add(d));
       stats.forEach(s => allStats.add(s));
       prios.forEach(p => allPrios.add(p));
@@ -397,7 +397,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
 
     if (localFilters && localFilters[0]) {
       const { divs, stats, prios } = extractValues(localFilters[0], createdByMap, markedToMap);
-      console.log(`[DEBUG_FILTERS] Local Admin Filters - Divs: ${divs.length}, Users: ${createdByMap.size + markedToMap.size}`);
+
       divs.forEach(d => allDivs.add(d));
       stats.forEach(s => allStats.add(s));
       prios.forEach(p => allPrios.add(p));
@@ -480,7 +480,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
           ]
         };
       }
-      console.error(`[DEBUG_FILTERS] Local Pipeline Match: ${JSON.stringify(match)}`);
+
 
       applyVisibilityFilters(match); // Apply filters to user local scope
 
@@ -490,7 +490,7 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
     }
 
     const [refFilters, localFilters] = await Promise.all(promises);
-    console.log(`[REFERENCE_FILTERS] Results received. Global facets: ${refFilters[0] ? 'Yes' : 'No'}, Local facets: ${localFilters[0] ? 'Yes' : 'No'}`);
+
 
     if (refFilters && refFilters[0]) {
       const { divs, stats, prios } = extractValues(refFilters[0], createdByMap, markedToMap);
@@ -501,12 +501,12 @@ export const getReferenceFilters = asyncHandler(async (req, res) => {
 
     if (localFilters && localFilters[0]) {
       const { divs, stats, prios } = extractValues(localFilters[0], createdByMap, markedToMap);
-      console.error(`[DEBUG_FILTERS] Local Extracted - stats: ${stats.length}, creators: ${createdByMap.size}, markers: ${markedToMap.size}`);
+
       divs.forEach(d => allDivs.add(d));
       stats.forEach(s => allStats.add(s));
       prios.forEach(p => allPrios.add(p));
     } else {
-      console.error(`[DEBUG_FILTERS] Local Filters extraction failed or empty. localFilters: ${!!localFilters}, [0]: ${localFilters && !!localFilters[0]}`);
+
     }
 
     createdByUsers = Array.from(createdByMap.values()).sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -538,17 +538,14 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
   // Try to find in main GlobalReference collection first
-  const reference = await GlobalReference.findById(referenceId)
-    .populate('createdBy markedTo', 'fullName email labName designation division')
-    .populate('reopenRequest.requestedBy', 'fullName email labName designation division')
-    .lean();
+  const reference = await GlobalReference.findById(referenceId).lean();
 
   const onModel = 'GlobalReference';
 
   // TODO: Add GlobalReference and VIPReference check here in future phases
 
   if (!reference) {
-    console.log("Reference not found for ID:", referenceId);
+
     return next(new ApiErrors('Reference not found', 404));
   }
 
@@ -591,8 +588,6 @@ export const getReferenceById = asyncHandler(async (req, res, next) => {
 
   // Fetch movements for this reference
   const movements = await GlobalMovement.find({ reference: referenceId })
-    .populate('markedTo', 'fullName email labName designation division') // Populate relevant user fields
-    .populate('performedBy', 'fullName email labName designation division')
     .sort({ movementDate: 1 }) // Sort by date ascending
     .lean();
 
@@ -688,14 +683,16 @@ export const createReference = asyncHandler(async (req, res, next) => {
       fullName: req.user.fullName,
       email: req.user.email,
       labName: req.user.labName,
-      designation: req.user.designation
+      designation: req.user.designation,
+      division: req.user.division
     },
     markedToDetails: [{
       _id: markedToUser._id,
       fullName: markedToUser.fullName,
       email: markedToUser.email,
       labName: markedToUser.labName,
-      designation: markedToUser.designation
+      designation: markedToUser.designation,
+      division: markedToUser.division
     }]
   });
   await newReference.save();
@@ -703,9 +700,23 @@ export const createReference = asyncHandler(async (req, res, next) => {
   // Create initial movement
   const movement = new GlobalMovement({
     reference: newReference._id,
-    // onModel: 'GlobalReference',
     markedTo: newReference.markedTo,
     performedBy: req.user._id,
+    performedByDetails: {
+      fullName: req.user.fullName,
+      email: req.user.email,
+      labName: req.user.labName,
+      designation: req.user.designation,
+      division: req.user.division
+    },
+    markedToDetails: [{
+      _id: markedToUser._id,
+      fullName: markedToUser.fullName,
+      email: markedToUser.email,
+      labName: markedToUser.labName,
+      designation: markedToUser.designation,
+      division: markedToUser.division
+    }],
     statusOnMovement: newReference.status,
     remarks: remarks || 'Reference created.',
     movementDate: new Date()
@@ -716,32 +727,33 @@ export const createReference = asyncHandler(async (req, res, next) => {
     after: JSON.parse(JSON.stringify(newReference.toObject()))
   });
 
-  // --- Send Email & Notification ---
-  try {
-    const markedToUser = await User.findById(markedTo);
-    if (markedToUser && markedToUser.email) {
-      const creatorName = getUserDisplayName(req.user);
-      const emailContent = getNewReferenceEmailTemplate(newReference, creatorName);
-      await sendEmail({
-        to: markedToUser.email,
-        subject: `New Reference Assigned: ${newReference.subject} [${newReference.refId}]`,
-        html: emailContent
-      });
+  // --- Send Email & Notification (Non-blocking) ---
+  (async () => {
+    try {
+      if (markedToUser && markedToUser.email) {
+        const creatorName = getUserDisplayName(req.user);
+        const emailContent = getNewReferenceEmailTemplate(newReference, creatorName);
+        await sendEmail({
+          to: markedToUser.email,
+          subject: `New Reference Assigned: ${newReference.subject} [${newReference.refId}]`,
+          html: emailContent
+        });
 
-      // --- NOTIFICATION TRIGGER ---
-      // Notify the user who is marked
-      await createNotification(
-        markedTo,
-        'REFERENCE_ASSIGNED',
-        'New Reference Assigned',
-        `You have been assigned a new reference: ${subject}`,
-        newReference._id,
-        'GlobalReference'
-      );
+        // --- NOTIFICATION TRIGGER ---
+        // Notify the user who is marked
+        await createNotification(
+          markedTo,
+          'REFERENCE_ASSIGNED',
+          'New Reference Assigned',
+          `You have been assigned a new reference: ${subject}`,
+          newReference._id,
+          'GlobalReference'
+        );
+      }
+    } catch (emailError) {
+      console.error("Failed to send creation email:", emailError);
     }
-  } catch (emailError) {
-    console.error("Failed to send creation email:", emailError);
-  }
+  })();
 
   res.status(201).json(new ApiResponse(201, 'Reference created successfully', newReference));
 });
@@ -880,7 +892,9 @@ export const updateReference = asyncHandler(async (req, res, next) => {
         _id: u._id,
         fullName: u.fullName,
         email: u.email,
-        labName: u.labName
+        labName: u.labName,
+        designation: u.designation,
+        division: u.division
       }));
 
       // Add to participants (Both target and actor)
@@ -899,7 +913,7 @@ export const updateReference = asyncHandler(async (req, res, next) => {
     before: JSON.parse(JSON.stringify(beforeState)),
     after: JSON.parse(JSON.stringify(reference.toObject()))
   });
-  console.log("DEBUG: logActivity called for REFERENCE_UPDATE");
+
 
   // Create a new movement record
   const MovementModel = onModel === 'LocalReference' ? LocalMovement : GlobalMovement;
@@ -908,6 +922,14 @@ export const updateReference = asyncHandler(async (req, res, next) => {
     // onModel: onModel,
     markedTo: reference.markedTo,
     performedBy: req.user._id,
+    performedByDetails: {
+      fullName: req.user.fullName,
+      email: req.user.email,
+      labName: req.user.labName,
+      designation: req.user.designation,
+      division: req.user.division
+    },
+    markedToDetails: reference.markedToDetails,
     statusOnMovement: reference.status,
     remarks: reference.remarks,
     movementDate: new Date()
@@ -1022,7 +1044,7 @@ export const deleteReference = asyncHandler(async (req, res, next) => {
   await logActivity(req, "REFERENCE_DELETE", "GlobalReference", referenceId, {
     before: JSON.parse(JSON.stringify(reference.toObject()))
   });
-  console.log("DEBUG: logActivity called for REFERENCE_DELETE");
+
   return res.status(200).json(new ApiResponse(200, "Reference deleted successfully"));
 });
 
@@ -1129,7 +1151,8 @@ export const bulkUpdateReferences = asyncHandler(async (req, res, next) => {
           fullName: assignee.fullName,
           email: assignee.email,
           labName: assignee.labName,
-          designation: assignee.designation
+          designation: assignee.designation,
+          division: assignee.division
         }];
 
         // Add to participants (Target and Actor)
@@ -1150,6 +1173,21 @@ export const bulkUpdateReferences = asyncHandler(async (req, res, next) => {
           reference: ref._id,
           markedTo: [assignee._id],
           performedBy: req.user._id,
+          performedByDetails: {
+            fullName: req.user.fullName,
+            email: req.user.email,
+            labName: req.user.labName,
+            designation: req.user.designation,
+            division: req.user.division
+          },
+          markedToDetails: [{
+            _id: assignee._id,
+            fullName: assignee.fullName,
+            email: assignee.email,
+            labName: assignee.labName,
+            designation: assignee.designation,
+            division: assignee.division
+          }],
           statusOnMovement: ref.status,
           remarks: finalRemarks,
           movementDate: new Date()
@@ -1348,80 +1386,82 @@ export const requestReopen = asyncHandler(async (req, res, next) => {
 
   const validEmails = allRecipients.filter(u => u.email).map(u => u.email);
 
+  // Generate Request ID
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const requestId = `REQ-${dateStr}-${randomSuffix}`;
+
+  // Persist the request in the database
+  reference.reopenRequest = {
+    requestId,
+    requestedBy: userId,
+    reason: remarks,
+    requestedAt: new Date()
+  };
+  await reference.save();
+
+  // Send emails and notifications (non-blocking thanks to centralized mail utility)
   if (validEmails.length > 0) {
-    try {
-      const requesterName = getUserDisplayName(req.user);
-      const baseUrl = getBaseUrl ? getBaseUrl() : (process.env.CLIENT_URL || 'http://localhost:3000');
+    const requesterName = getUserDisplayName(req.user);
+    const baseUrl = getBaseUrl ? getBaseUrl() : (process.env.CLIENT_URL || 'http://localhost:3000');
 
-      const emailContent = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-          <h2 style="color: #4f46e5;">Reopening Request</h2>
-          <p><strong>${requesterName}</strong> has requested to reopen the following closed reference.</p>
-          
-          <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <p style="margin: 5px 0;"><strong>Ref ID:</strong> ${reference.refId}</p>
-            <p style="margin: 5px 0;"><strong>Subject:</strong> ${reference.subject}</p>
-          </div>
-
-          <div style="margin-top: 15px;">
-            <strong>Reason/Remarks:</strong><br/>
-            <p>${remarks || 'No remarks provided.'}</p>
-          </div>
-
-          <p style="margin-top: 25px;">
-             <a href="${baseUrl}/references/${reference._id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Reference</a>
-          </p>
+    const emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <h2 style="color: #4f46e5;">Reopening Request</h2>
+        <p><strong>${requesterName}</strong> has requested to reopen the following closed reference.</p>
+        
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <p style="margin: 5px 0;"><strong>Ref ID:</strong> ${reference.refId}</p>
+          <p style="margin: 5px 0;"><strong>Subject:</strong> ${reference.subject}</p>
         </div>
-      `;
 
-      const uniqueEmails = [...new Set(validEmails)];
+        <div style="margin-top: 15px;">
+          <strong>Reason/Remarks:</strong><br/>
+          <p>${remarks || 'No remarks provided.'}</p>
+        </div>
 
-      await sendEmail({
-        to: uniqueEmails.join(','),
-        subject: `Reopening Request: ${reference.subject} [${reference.refId}]`,
-        html: emailContent
-      });
+        <p style="margin-top: 25px;">
+           <a href="${baseUrl}/references/${reference._id}" style="background-color: #4f46e5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Reference</a>
+        </p>
+      </div>
+    `;
 
-      await logActivity(req, "REFERENCE_REOPEN_REQUEST", "Reference", referenceId, {
-        requestedBy: userId,
-        remarks
-      });
+    const uniqueEmails = [...new Set(validEmails)];
 
-      // --- NOTIFICATION TRIGGER ---
-      // Notify all involved users
-      for (const recipientId of involvedUserIds) {
-        // Don't notify the requester themselves
-        if (recipientId.toString() !== userId.toString()) {
-          await createNotification(
+    // sendEmail is now non-blocking by default - no need to await
+    sendEmail({
+      to: uniqueEmails.join(','),
+      subject: `Reopening Request: ${reference.subject} [${reference.refId}]`,
+      html: emailContent
+    });
+
+    // logActivity is also non-blocking
+    logActivity(req, "REFERENCE_REOPEN_REQUEST", "Reference", referenceId, {
+      requestedBy: userId,
+      remarks
+    });
+
+    // Create notifications in parallel (non-blocking)
+    const notificationPromises = [];
+    for (const recipientId of involvedUserIds) {
+      if (recipientId.toString() !== userId.toString()) {
+        notificationPromises.push(
+          createNotification(
             recipientId,
             'REOPEN_REQUEST',
             'Reopening Request',
             `${requesterName} requested to reopen: ${reference.subject}`,
             reference._id,
             onModel
-          );
-        }
+          )
+        );
       }
-
-      // Generate Request ID
-
-      // Generate Request ID
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const requestId = `REQ-${dateStr}-${randomSuffix}`;
-
-      // Persist the request in the database
-      reference.reopenRequest = {
-        requestId,
-        requestedBy: userId,
-        reason: remarks,
-        requestedAt: new Date()
-      };
-      await reference.save();
-
-    } catch (error) {
-      console.error("Error sending reopen request email", error);
     }
+
+    // Fire and forget - send all notifications in parallel
+    Promise.all(notificationPromises).catch(err =>
+      console.error('Error creating notifications:', err)
+    );
   }
 
   res.status(200).json(new ApiResponse(200, "Reopening request sent successfully"));
@@ -1452,11 +1492,24 @@ export const handleReopenAction = asyncHandler(async (req, res, next) => {
     return next(new ApiErrors('No pending reopen request found for this reference', 400));
   }
 
-  // Security Check: Only Superadmin or HQRS Admins can approve/reject
+  // Security Check: Determine who can approve/reject based on permissions only
   const isGlobalAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
-  const isHqrsAdmin = req.user.labName && /CSIR\s*HQRS/i.test(req.user.labName);
+  const isLocalLabAdmin = await checkUserPermission(req.user, FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE);
 
-  if (!isGlobalAdmin && !isHqrsAdmin) {
+  // For Local References: Allow Global Admins or Local Lab Admins (same lab)
+  // For Global References: Allow Global Admins only
+  let hasPermission = false;
+
+  if (onModel === 'LocalReference') {
+    // Local reference: Allow if user is Global Admin or Local Lab Admin for the same lab
+    const isSameLab = reference.labName === req.user.labName;
+    hasPermission = isGlobalAdmin || (isLocalLabAdmin && isSameLab);
+  } else {
+    // Global reference: Only Global Admins
+    hasPermission = isGlobalAdmin;
+  }
+
+  if (!hasPermission) {
     return next(new ApiErrors('Forbidden: You do not have permission to handle reopening requests.', 403));
   }
 
@@ -1486,7 +1539,9 @@ export const handleReopenAction = asyncHandler(async (req, res, next) => {
       _id: u._id,
       fullName: u.fullName,
       email: u.email,
-      labName: u.labName
+      labName: u.labName,
+      designation: u.designation,
+      division: u.division
     }));
     reference.markedToDivision = nextUsers[0].division;
   }
@@ -1499,6 +1554,14 @@ export const handleReopenAction = asyncHandler(async (req, res, next) => {
     reference: reference._id,
     markedTo: reference.markedTo,
     performedBy: req.user._id,
+    performedByDetails: {
+      fullName: req.user.fullName,
+      email: req.user.email,
+      labName: req.user.labName,
+      designation: req.user.designation,
+      division: req.user.division
+    },
+    markedToDetails: reference.markedToDetails,
     statusOnMovement: reference.status,
     remarks: reference.remarks,
     movementDate: new Date()

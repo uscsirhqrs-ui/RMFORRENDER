@@ -33,11 +33,22 @@ import {
     migrateLabNames,
     manualActivateUser,
     bulkManualActivateUsers,
-    resendActivationEmail
+    resendActivationEmail,
+    updateUserProfileById
 } from '../controllers/user.controller.js';
 import { upload } from '../middlewares/multer.middleware.js';
 import { verifyJWT, checkPermission } from "../middlewares/auth.middleware.js";
 import { FeatureCodes } from "../constants.js";
+import {
+    validateUserRegistration,
+    validateUserLogin,
+    validatePasswordChange,
+    validatePasswordReset,
+    validateForgotPassword,
+    validateProfileUpdate,
+    validateUserId,
+    validateBulkUserIds
+} from '../middlewares/validation.middleware.js';
 
 const router = Router();
 
@@ -52,33 +63,36 @@ router.route("/register").post(
             maxCount: 1,
         },
     ]),
+    validateUserRegistration,
     registerUser
 );
 
-router.route("/login").post(loginUser);
-router.route("/forgot-password").post(forgotPassword);
+router.route("/login").post(validateUserLogin, loginUser);
+router.route("/forgot-password").post(validateForgotPassword, forgotPassword);
 router.route("/verify-token").post(verifyForgotPassToken);
-router.route("/reset-password").post(resetPassword);
+router.route("/reset-password").post(validatePasswordReset, resetPassword);
 router.route("/activate-account").post(activateAccount);
-router.route("/resend-activation").post(resendActivationEmail);
+router.route("/resend-activation").post(validateForgotPassword, resendActivationEmail);
 
 // secured routes
 router.route('/logout').post(verifyJWT, logoutUser);
 router.route('/switch-role').post(verifyJWT, switchRole);
 router.route('/refresh-token').post(refreshAccessToken);
-router.route('/change-password').post(verifyJWT, changePassword);
+router.route('/change-password').post(verifyJWT, validatePasswordChange, changePassword);
 router.route('/getAllUsers').get(verifyJWT, getAllUsers);
-router.route('/status/bulk').patch(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), bulkUpdateUserStatus);
-router.route('/status/:userId').patch(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), updateUserStatus);
-router.route('/delete/bulk').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), bulkDeleteUsers);
+router.route('/status/bulk').patch(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateBulkUserIds, bulkUpdateUserStatus);
+router.route('/status/:userId').patch(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateUserId, updateUserStatus);
+router.route('/delete/bulk').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateBulkUserIds, bulkDeleteUsers);
 router.route('/profile').get(verifyJWT, getCurrentUser);
-router.route('/profile/:userId').get(verifyJWT, getUserProfileById);
-router.route('/profile').patch(verifyJWT, updateUserProfile);
+router.route('/profile/:userId')
+    .get(verifyJWT, validateUserId, getUserProfileById)
+    .patch(verifyJWT, validateUserId, validateProfileUpdate, updateUserProfileById);
+router.route('/profile').patch(verifyJWT, validateProfileUpdate, updateUserProfile);
 router.route('/avatar').patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
-router.route('/admin-creation').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), createAdminUser);
-router.route('/activate-manual/bulk').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), bulkManualActivateUsers);
-router.route('/activate-manual/:userId').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), manualActivateUser);
-router.route('/update-roles/:userId').patch(verifyJWT, checkPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION), updateUserAvailableRoles);
+router.route('/admin-creation').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateUserRegistration, createAdminUser);
+router.route('/activate-manual/bulk').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateBulkUserIds, bulkManualActivateUsers);
+router.route('/activate-manual/:userId').post(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES]), validateUserId, manualActivateUser);
+router.route('/update-roles/:userId').patch(verifyJWT, checkPermission([FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION]), validateUserId, updateUserAvailableRoles);
 router.route('/maintenance/migrate-labs').post(verifyJWT, checkPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION), migrateLabNames);
 
 export default router;

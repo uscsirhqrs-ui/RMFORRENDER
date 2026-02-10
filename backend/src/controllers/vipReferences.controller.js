@@ -1,5 +1,5 @@
 /**
- * @fileoverview API Controller - Handles VIP Reference operations
+ * @fileoverview API Controller - Handles HTTP requests and business logic
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

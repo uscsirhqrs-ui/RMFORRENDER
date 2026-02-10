@@ -69,7 +69,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
 
         // Debugging self-visibility
         // if (u.email === currentUser?.email) {
-        //    console.log(`[Filter Debug] Checking user ${u.email}. ID: ${u._id} vs Current: ${currentUser?._id}. IsSelf: ${isSelf}, IsSelfEmail: ${isSelfEmail}`);
+
         // }
 
         if (isSelf || isSelfEmail) return false;
@@ -263,7 +263,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                 });
 
             if (response.success) {
-                console.log("Update success. Message set. Calling onSuccess...");
+
                 let secondsLeft = 3;
                 setMessage({ type: 'success', text: `Reference updated successfully. Auto closing in ${secondsLeft} seconds...` });
                 onSuccess(); // Refresh data immediately
@@ -275,7 +275,7 @@ const UpdateReferenceModal: React.FC<UpdateReferenceModalProps> = ({ isOpen, onC
                         setMessage({ type: 'success', text: `Reference updated successfully. Auto closing in ${secondsLeft} seconds...` });
                     } else {
                         clearInterval(intervalId);
-                        console.log("Countdown finished. Closing modal...");
+
                         onClose();
                         setMessage(null);
                     }

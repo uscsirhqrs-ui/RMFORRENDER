@@ -51,7 +51,7 @@ export default function HomePage() {
             hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_OWN_OFFICE) ||
             hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES) ||
             hasPermission(FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
-        const canManageForms = hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT);
+        const canManageForms = hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB) || hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB);
 
         if (canManageUsers) return <Navigate to="/users" replace />;
         if (canViewReferences) return <Navigate to="/references/local" replace />;

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Nodemailer Email Provider - Implementation for sending emails via SMTP
+ * @fileoverview Source File - Part of the application codebase
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -26,8 +26,7 @@ transporter.verify(function (error, success) {
     if (error) {
         console.error("❌ [Nodemailer] Connection Failed:", error);
     } else {
-        console.log("✅ [Nodemailer] Server is ready to take our messages");
-        console.log(`[Nodemailer] Sending from: ${process.env.RESET_SEND_EMAIL}`);
+
     }
 });
 
@@ -47,7 +46,7 @@ export const sendEmail = async ({ to, subject, html }) => {
 
     try {
         const info = await transporter.sendMail(mailOptions);
-        console.log(`Email sent (Nodemailer): ${info.messageId}`);
+        // console.log(`Email sent (Nodemailer): ${info.messageId}`);
         return { success: true, messageId: info.messageId };
     } catch (error) {
         console.error("Error sending email (Nodemailer):", error);

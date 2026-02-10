@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type Definition - Reference model
+ * @fileoverview Source File - Part of the application codebase
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -18,10 +18,12 @@ type UserSummary = {
 };
 
 type UserDetails = {
+    _id?: string;
     fullName: string;
     email: string;
     labName: string;
     designation?: string;
+    division?: string;
 };
 
 type Reference = {
@@ -54,11 +56,11 @@ type Reference = {
     "sentAt"?: string | Date;
     "reopenRequest"?: {
         "requestId"?: string;
-        "requestedBy": string | { _id: string; fullName: string; email: string };
+        "requestedBy": string | { _id: string; fullName: string; email: string; designation?: string; division?: string };
         "reason": string;
         "requestedAt": string;
     };
     "__v"?: number | string;
 };
 
-export type { Reference };
+export type { Reference, UserDetails, UserSummary };

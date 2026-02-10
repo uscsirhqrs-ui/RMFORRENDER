@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Modal for one-at-a-time bulk user management
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -124,6 +124,13 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                     status: status as any,
                     isActivated
                 });
+
+                // Automatically move to next user after a brief delay
+                setTimeout(() => {
+                    if (currentIndex < selectedUsers.length - 1) {
+                        setCurrentIndex(currentIndex + 1);
+                    }
+                }, 500);
             } else {
                 setMessage({ type: 'error', text: rolesResponse.message || 'Failed to update roles' });
             }
@@ -184,6 +191,12 @@ const BulkUserManagementModal: React.FC<BulkUserManagementModalProps> = ({
                                 {currentUser.fullName || currentUser.email?.split('@')[0]}
                             </h4>
                             <p className="text-gray-500 dark:text-gray-400 font-medium truncate text-sm sm:text-base">{currentUser.email}</p>
+                            {currentUser.designation && (
+                                <p className="text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mt-1 flex items-center gap-2">
+                                    <ShieldAlert className="w-3.5 h-3.5" />
+                                    {currentUser.designation}
+                                </p>
+                            )}
                             <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2 sm:mt-3">
                                 <span className={`px-2 sm:px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-xs ${currentUser.status === 'Approved' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
                                     currentUser.status === 'Rejected' ? 'bg-rose-50 text-rose-600 border-rose-100' :

@@ -1,5 +1,5 @@
 /**
- * @fileoverview Data Model - Defines database schema for Local References
+ * @fileoverview Data Model - Defines database schema and model methods
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -89,12 +89,15 @@ const LocalReferenceSchema = new Schema(
             email: String,
             labName: String,
             designation: String,
+            division: String,
         },
         markedToDetails: [{
+            _id: Schema.Types.ObjectId,
             fullName: String,
             email: String,
             labName: String,
             designation: String,
+            division: String,
         }],
         labName: {
             type: String,

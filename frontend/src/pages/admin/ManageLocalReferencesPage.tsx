@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Manage Local References (Admin Page)
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -385,6 +385,7 @@ const ManageLocalReferencesPage = () => {
                         rows={references}
                         visibleColumns={visibleColumns}
                         columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
+                        getRowClassName={(row) => row.reopenRequest ? 'animate-row-flash' : ''}
                         customHeaderRenderers={{
                             selection: () => (
                                 <input
@@ -415,6 +416,11 @@ const ManageLocalReferencesPage = () => {
                                 <div className="flex flex-col">
                                     <span className="font-semibold text-gray-900 truncate font-heading" title={row.subject}>{row.subject}</span>
                                     <div className="flex gap-2 mt-0.5">
+                                        {row.reopenRequest && (
+                                            <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 font-bold uppercase font-heading animate-blink">
+                                                <RotateCcw className="w-2.5 h-2.5" /> Reopen Request
+                                            </span>
+                                        )}
                                         {row.isHidden && (
                                             <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase font-heading">
                                                 <EyeOff className="w-2.5 h-2.5" /> Hidden

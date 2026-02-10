@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - UI component for the application (Updated)
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -17,7 +17,7 @@ import Button from '../components/ui/Button';
 import DropDownWithSearch from '../components/ui/DropDownWithSearch';
 import { Sparkles, Calendar, Type, Save, Upload, FileText, CheckCircle2, Share2, Settings2, Trash2, Plus, Link, Copy, X, Download, Image as ImageIcon, User, ArrowUpRight, ArrowDownLeft, PlusCircle } from 'lucide-react';
 import { getAllUsers } from '../services/user.api';
-import { createFormTemplate, updateFormTemplate, getFormTemplates, submitFormData, deleteFormTemplate, cloneFormTemplate, shareTemplateCopy, getFormTemplateById } from '../services/form.api';
+import { createActiveForm, updateActiveForm, getActiveForms, submitFormData, deleteActiveForm, cloneActiveForm, shareTemplateCopy, getActiveFormById } from '../services/form.api';
 import { getSystemConfig } from '../services/systemConfig.api';
 import { useAuth } from '../context/AuthContext';
 import UserProfileViewModal from '../components/ui/UserProfileViewModal';
@@ -25,6 +25,7 @@ import Papa from 'papaparse';
 import FormSubmissionsView from '../components/ui/FormSubmissionsView';
 import { Eye } from 'lucide-react';
 import { useMessageBox } from '../context/MessageBoxContext';
+import { FeatureCodes } from '../constants';
 
 interface FormField {
     id: string;
@@ -49,7 +50,7 @@ interface FormSchema {
 }
 
 export default function DataCollectionPage() {
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, hasPermission } = useAuth();
     const { showMessage, showConfirm } = useMessageBox();
     const { id } = useParams();
     const [prompt, setPrompt] = useState('');
@@ -113,7 +114,7 @@ export default function DataCollectionPage() {
     const handleLoadSpecificTemplate = async (templateId: string) => {
         try {
             setIsSaving(true); // Re-using isSaving as a generic loader state here
-            const response = await getFormTemplateById(templateId);
+            const response = await getActiveFormById(templateId);
             setIsSaving(false);
             if (response.success && response.data) {
                 const template = response.data;
@@ -137,8 +138,8 @@ export default function DataCollectionPage() {
     const fetchInitialData = async () => {
         try {
             const [usersRes, templatesRes, configRes] = await Promise.all([
-                getAllUsers(),
-                getFormTemplates(),
+                getAllUsers(1, 1000), // Get a substantial number of users for distribution selection
+                getActiveForms(),
                 getSystemConfig()
             ]);
 
@@ -155,9 +156,10 @@ export default function DataCollectionPage() {
             }
 
             // 2. Supplement from Users
-            if (usersRes.success && usersRes.data && Array.isArray(usersRes.data)) {
-                setAllUsers(usersRes.data);
-                const userLabs = Array.from(new Set(usersRes.data.map((u: any) => u.labName).filter(Boolean))) as string[];
+            if (usersRes.success && usersRes.data) {
+                const fetchedUsers = Array.isArray(usersRes.data) ? usersRes.data : (usersRes.data.users || []);
+                setAllUsers(fetchedUsers);
+                const userLabs = Array.from(new Set(fetchedUsers.map((u: any) => u.labName).filter(Boolean))) as string[];
 
                 if (userLabs.length > 0) {
                     // Combine with unique labs from config/defaults
@@ -643,9 +645,9 @@ export default function DataCollectionPage() {
 
         let response;
         if (selectedTemplateId) {
-            response = await updateFormTemplate(selectedTemplateId, payload);
+            response = await updateActiveForm(selectedTemplateId, payload);
         } else {
-            response = await createFormTemplate(payload);
+            response = await createActiveForm(payload);
         }
 
         setIsSaving(false);
@@ -799,7 +801,7 @@ export default function DataCollectionPage() {
             cancelText: 'Cancel'
         });
         if (confirmed) {
-            const response = await cloneFormTemplate(id);
+            const response = await cloneActiveForm(id);
             if (response.success) {
                 setSaveMessage("Template cloned successfully!");
                 setTimeout(() => setSaveMessage(''), 3000);
@@ -823,7 +825,7 @@ export default function DataCollectionPage() {
 
         try {
             setIsSaving(true);
-            const response = await deleteFormTemplate(templateId);
+            const response = await deleteActiveForm(templateId);
             setIsSaving(false);
             if (response.success) {
                 setExistingTemplates(prev => prev.filter(t => t._id !== templateId));
@@ -850,14 +852,14 @@ export default function DataCollectionPage() {
 
         setIsSaving(true);
         // We reuse handleSaveTemplate or call update directly. 
-        // Since handleSaveTemplate is complex with modal state, simpler to call updateFormTemplate directly.
+        // Since handleSaveTemplate is complex with modal state, simpler to call updateActiveForm directly.
         const payload = {
             ...template,
             isActive: !template.isActive,
             notifyUsers: false
         };
 
-        const response = await updateFormTemplate(template._id, payload);
+        const response = await updateActiveForm(template._id, payload);
         setIsSaving(false);
         if (response.success) {
             fetchInitialData();
@@ -1063,199 +1065,216 @@ export default function DataCollectionPage() {
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="flex h-[550px] divide-x divide-gray-100">
+                                {(() => {
+                                    // Permission Checks
+                                    const canShareInterLab = hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB);
 
-                                {/* Column 1: Laboratories */}
-                                <div className="w-1/4 flex flex-col bg-white">
-                                    <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider">1. Laboratories</label>
-                                        <button
-                                            onClick={() => {
-                                                if (selectedSharedLabs.length === allLabs.length) {
-                                                    setSelectedSharedLabs([]);
-                                                } else {
-                                                    setSelectedSharedLabs([...allLabs]);
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline"
-                                        >
-                                            {selectedSharedLabs.length === allLabs.length ? 'Deselect All' : 'Select All'}
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                                        {allLabs.map(lab => (
-                                            <label key={lab} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedSharedLabs.includes(lab) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedSharedLabs.includes(lab)}
-                                                    onChange={() => {
-                                                        setSelectedSharedLabs(prev =>
-                                                            prev.includes(lab) ? prev.filter(l => l !== lab) : [...prev, lab]
-                                                        );
-                                                    }}
-                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <span className="text-xs font-bold leading-none">{lab}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
+                                    // Effective Lists based on permissions
+                                    const labsForSharing = canShareInterLab
+                                        ? allLabs
+                                        : (currentUser?.labName ? [currentUser.labName] : []);
 
-                                {/* Column 2: Designations */}
-                                <div className="w-1/4 flex flex-col bg-white">
-                                    <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider">2. Designations</label>
-                                        <button
-                                            onClick={() => {
-                                                // Get designations available in selected labs
-                                                const visibleDesignations = Array.from(new Set(allUsers
-                                                    .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
-                                                    .map(u => u.designation)));
+                                    const usersForSharing = canShareInterLab
+                                        ? allUsers
+                                        : allUsers.filter(u => u.labName === currentUser?.labName);
 
-                                                const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
+                                    return (
+                                        <>
+                                            {/* Column 1: Laboratories */}
+                                            <div className="w-1/4 flex flex-col bg-white">
+                                                <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
+                                                    <label className="text-[10px] font-bold text-gray-400 tracking-wider">1. Laboratories</label>
+                                                    {canShareInterLab && (
+                                                        <button
+                                                            onClick={() => {
+                                                                if (selectedSharedLabs.length === labsForSharing.length) {
+                                                                    setSelectedSharedLabs([]);
+                                                                } else {
+                                                                    setSelectedSharedLabs([...labsForSharing]);
+                                                                }
+                                                            }}
+                                                            className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                                        >
+                                                            {selectedSharedLabs.length === labsForSharing.length ? 'Deselect All' : 'Select All'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                                                    {labsForSharing.map(lab => (
+                                                        <label key={lab} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedSharedLabs.includes(lab) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedSharedLabs.includes(lab)}
+                                                                onChange={() => {
+                                                                    if (!canShareInterLab) return; // Prevent changing if restricted to own lab
+                                                                    setSelectedSharedLabs(prev =>
+                                                                        prev.includes(lab) ? prev.filter(l => l !== lab) : [...prev, lab]
+                                                                    );
+                                                                }}
+                                                                disabled={!canShareInterLab}
+                                                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                                            />
+                                                            <span className="text-xs font-bold leading-none">{lab}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
 
-                                                if (allVisibleSelected) {
-                                                    setSelectedDesignations(prev => prev.filter(d => !visibleDesignations.includes(d)));
-                                                } else {
-                                                    setSelectedDesignations(prev => Array.from(new Set([...prev, ...visibleDesignations])));
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline"
-                                        >
-                                            {(() => {
-                                                const visibleDesignations = Array.from(new Set(allUsers
-                                                    .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
-                                                    .map(u => u.designation)));
-                                                const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
-                                                return allVisibleSelected ? 'Deselect All' : 'Select All';
-                                            })()}
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                                        {(() => {
-                                            // Determine which designations to show
-                                            const visibleDesignations = Array.from(new Set(allUsers
-                                                .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
-                                                .map(u => u.designation))).sort();
+                                            {/* Column 2: Designations */}
+                                            <div className="w-1/4 flex flex-col bg-white">
+                                                <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
+                                                    <label className="text-[10px] font-bold text-gray-400 tracking-wider">2. Designations</label>
+                                                    <button
+                                                        onClick={() => {
+                                                            // Get designations available in selected labs
+                                                            const visibleDesignations = Array.from(new Set(usersForSharing
+                                                                .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
+                                                                .map(u => u.designation)));
 
-                                            if (visibleDesignations.length === 0) {
-                                                return <div className="p-4 text-xs text-center text-gray-400 italic">No designations found in selected labs.</div>;
-                                            }
+                                                            const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
 
-                                            return visibleDesignations.map(desig => (
-                                                <label key={desig} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedDesignations.includes(desig) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedDesignations.includes(desig)}
-                                                        onChange={() => {
-                                                            setSelectedDesignations(prev =>
-                                                                prev.includes(desig) ? prev.filter(d => d !== desig) : [...prev, desig]
+                                                            if (allVisibleSelected) {
+                                                                setSelectedDesignations(prev => prev.filter(d => !visibleDesignations.includes(d)));
+                                                            } else {
+                                                                setSelectedDesignations(prev => Array.from(new Set([...prev, ...visibleDesignations])));
+                                                            }
+                                                        }}
+                                                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                                    >
+                                                        {(() => {
+                                                            const visibleDesignations = Array.from(new Set(usersForSharing
+                                                                .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
+                                                                .map(u => u.designation)));
+                                                            const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
+                                                            return allVisibleSelected ? 'Deselect All' : 'Select All';
+                                                        })()}
+                                                    </button>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
+                                                    {(() => {
+                                                        // Determine which designations to show
+                                                        const visibleDesignations = Array.from(new Set(usersForSharing
+                                                            .filter(u => selectedSharedLabs.includes(u.labName) && u.designation)
+                                                            .map(u => u.designation))).sort();
+
+                                                        if (visibleDesignations.length === 0) {
+                                                            return <div className="p-4 text-xs text-center text-gray-400 italic">No designations found.</div>;
+                                                        }
+
+                                                        return visibleDesignations.map(desig => (
+                                                            <label key={desig} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedDesignations.includes(desig) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedDesignations.includes(desig)}
+                                                                    onChange={() => {
+                                                                        setSelectedDesignations(prev =>
+                                                                            prev.includes(desig) ? prev.filter(d => d !== desig) : [...prev, desig]
+                                                                        );
+                                                                    }}
+                                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                                />
+                                                                <span className="text-xs font-bold leading-none truncate" title={desig}>{desig}</span>
+                                                            </label>
+                                                        ));
+                                                    })()}
+                                                </div>
+                                            </div>
+
+                                            {/* Column 3: Users */}
+                                            <div className="w-2/4 flex flex-col bg-gray-50/30">
+                                                <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
+                                                    <label className="text-[10px] font-bold text-gray-400 tracking-wider">
+                                                        3. Users (Filtered)
+                                                    </label>
+                                                    <button
+                                                        onClick={() => {
+                                                            // Calculate the filtered list of users matching the DISPLAY filters
+                                                            const validRecipients = usersForSharing.filter(u =>
+                                                                !['admin', 'superadmin', 'delegated admin'].includes(u.role?.toLowerCase()) &&
+                                                                u._id !== currentUser?._id // Exclude current user
                                                             );
+
+                                                            // REQUIRE BOTH at least one lab AND at least one designation to be selected
+                                                            const filteredUsers = (selectedSharedLabs.length === 0 || selectedDesignations.length === 0)
+                                                                ? []
+                                                                : validRecipients.filter(u => {
+                                                                    const labMatch = selectedSharedLabs.includes(u.labName);
+                                                                    const desigMatch = selectedDesignations.includes(u.designation);
+                                                                    return labMatch && desigMatch;
+                                                                });
+
+                                                            const filteredUserIds = filteredUsers.map(u => u._id);
+
+                                                            if (filteredUserIds.length > 0 && filteredUserIds.every(id => selectedSharedUsers.includes(id))) {
+                                                                setSelectedSharedUsers(prev => prev.filter(id => !filteredUserIds.includes(id)));
+                                                            } else {
+                                                                setSelectedSharedUsers(prev => Array.from(new Set([...prev, ...filteredUserIds])));
+                                                            }
                                                         }}
-                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                    />
-                                                    <span className="text-xs font-bold leading-none truncate" title={desig}>{desig}</span>
-                                                </label>
-                                            ));
-                                        })()}
-                                    </div>
-                                </div>
+                                                        className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                                    >
+                                                        Select / Deselect Visible
+                                                    </button>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3 custom-scrollbar content-start">
+                                                    {(() => {
+                                                        const validRecipients = usersForSharing.filter(u =>
+                                                            !['admin', 'superadmin', 'delegated admin'].includes(u.role?.toLowerCase()) &&
+                                                            u._id !== currentUser?._id // Exclude current user from selection
+                                                        );
 
-                                {/* Column 3: Users */}
-                                <div className="w-2/4 flex flex-col bg-gray-50/30">
-                                    <div className="p-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider">
-                                            3. Users (Filtered)
-                                        </label>
-                                        <button
-                                            onClick={() => {
-                                                // Calculate the filtered list of users matching the DISPLAY filters
-                                                const validUsers = allUsers.filter(u =>
-                                                    !['admin', 'superadmin', 'delegated admin'].includes(u.role?.toLowerCase()) &&
-                                                    u._id !== currentUser?._id // Exclude current user
-                                                );
-
-                                                // REQUIRE BOTH at least one lab AND at least one designation to be selected
-                                                const filteredUsers = (selectedSharedLabs.length === 0 || selectedDesignations.length === 0)
-                                                    ? []
-                                                    : validUsers.filter(u => {
-                                                        const labMatch = selectedSharedLabs.includes(u.labName);
-                                                        const desigMatch = selectedDesignations.includes(u.designation);
-                                                        return labMatch && desigMatch;
-                                                    });
-
-                                                const filteredUserIds = filteredUsers.map(u => u._id);
-
-                                                if (filteredUserIds.length > 0 && filteredUserIds.every(id => selectedSharedUsers.includes(id))) {
-                                                    setSelectedSharedUsers(prev => prev.filter(id => !filteredUserIds.includes(id)));
-                                                } else {
-                                                    setSelectedSharedUsers(prev => Array.from(new Set([...prev, ...filteredUserIds])));
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline"
-                                        >
-                                            Select / Deselect Visible
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3 custom-scrollbar content-start">
-                                        {(() => {
-                                            const validUsers = allUsers.filter(u =>
-                                                !['admin', 'superadmin', 'delegated admin'].includes(u.role?.toLowerCase()) &&
-                                                u._id !== currentUser?._id // Exclude current user from selection
-                                            );
-
-                                            // REQUIRE BOTH at least one lab AND at least one designation to be selected before showing users
-                                            const filteredUsers = (selectedSharedLabs.length === 0 || selectedDesignations.length === 0)
-                                                ? []
-                                                : validUsers.filter(u => {
-                                                    // Match selected labs
-                                                    const labMatch = selectedSharedLabs.includes(u.labName);
-                                                    // Match selected designations
-                                                    const desigMatch = selectedDesignations.includes(u.designation);
-                                                    // Both conditions must pass
-                                                    return labMatch && desigMatch;
-                                                });
-
-                                            if (filteredUsers.length === 0) {
-                                                return (
-                                                    <div className="col-span-2 flex flex-col items-center justify-center pt-20 text-gray-400">
-                                                        <Share2 className="w-8 h-8 opacity-20 mb-2" />
-                                                        <p className="text-xs italic text-center px-4">
-                                                            {selectedSharedLabs.length === 0 || selectedDesignations.length === 0
-                                                                ? "Select at least one Lab and one Designation to view eligible users."
-                                                                : "No users in the selected Lab(s) match the chosen Designation(s)."}
-                                                        </p>
-                                                    </div>
-                                                );
-                                            }
-
-                                            return filteredUsers.map(u => (
-                                                <label key={u._id} title={`${u.fullName || "Unnamed"} - ${u.designation} (${u.labName})`} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group relative ${selectedSharedUsers.includes(u._id) ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedSharedUsers.includes(u._id)}
-                                                        onChange={() => {
-                                                            console.log('[Checkbox Click] User:', u.fullName, 'ID:', u._id);
-                                                            setSelectedSharedUsers(prev => {
-                                                                console.log('[Checkbox Click] Previous selected users:', prev);
-                                                                const newState = prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id];
-                                                                console.log('[Checkbox Click] New selected users:', newState);
-                                                                return newState;
+                                                        // REQUIRE BOTH at least one lab AND at least one designation to be selected before showing users
+                                                        const filteredUsers = (selectedSharedLabs.length === 0 || selectedDesignations.length === 0)
+                                                            ? []
+                                                            : validRecipients.filter(u => {
+                                                                // Match selected labs
+                                                                const labMatch = selectedSharedLabs.includes(u.labName);
+                                                                // Match selected designations
+                                                                const desigMatch = selectedDesignations.includes(u.designation);
+                                                                // Both conditions must pass
+                                                                return labMatch && desigMatch;
                                                             });
-                                                        }}
-                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
-                                                    />
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="text-xs font-bold text-gray-900 truncate">
-                                                            {u.fullName || "Unnamed User"}
-                                                            {u.designation && <span className="text-gray-400 font-normal">, {u.designation}</span>}
-                                                        </span>
-                                                        <span className="text-[10px] text-indigo-600 font-bold tracking-normal truncate">({u.labName})</span>
-                                                    </div>
-                                                </label>
-                                            ));
-                                        })()}
-                                    </div>
-                                </div>
+
+                                                        if (filteredUsers.length === 0) {
+                                                            return (
+                                                                <div className="col-span-2 flex flex-col items-center justify-center pt-20 text-gray-400">
+                                                                    <Share2 className="w-8 h-8 opacity-20 mb-2" />
+                                                                    <p className="text-xs italic text-center px-4">
+                                                                        {selectedSharedLabs.length === 0 || selectedDesignations.length === 0
+                                                                            ? "Select at least one Lab and one Designation to view eligible users."
+                                                                            : "No users match the chosen criteria."}
+                                                                    </p>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        return filteredUsers.map(u => (
+                                                            <label key={u._id} title={`${u.fullName || "Unnamed"} - ${u.designation} (${u.labName})`} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group relative ${selectedSharedUsers.includes(u._id) ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'}`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedSharedUsers.includes(u._id)}
+                                                                    onChange={() => {
+                                                                        setSelectedSharedUsers(prev =>
+                                                                            prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id]
+                                                                        );
+                                                                    }}
+                                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                                                                />
+                                                                <div className="flex flex-col min-w-0">
+                                                                    <span className="text-xs font-bold text-gray-900 truncate">
+                                                                        {u.fullName || "Unnamed User"}
+                                                                        {u.designation && <span className="text-gray-400 font-normal">, {u.designation}</span>}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-indigo-600 font-bold tracking-normal truncate">({u.labName})</span>
+                                                                </div>
+                                                            </label>
+                                                        ));
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
 
                             <div className="p-6 border-t border-gray-100 flex items-center justify-between bg-white rounded-b-xl">
@@ -1809,7 +1828,15 @@ export default function DataCollectionPage() {
                                             label="Distribute"
                                             onClick={() => {
                                                 setSharingMode('COLLECT');
-                                                setSelectedSharedLabs([]);
+
+                                                // Auto-select own lab if restricted
+                                                const canShareInterLab = hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB);
+                                                if (!canShareInterLab && currentUser?.labName) {
+                                                    setSelectedSharedLabs([currentUser.labName]);
+                                                } else {
+                                                    setSelectedSharedLabs([]);
+                                                }
+
                                                 setSelectedSharedUsers([]);
                                                 setSelectedDesignations([]); // Reset designations
 
@@ -2166,6 +2193,15 @@ export default function DataCollectionPage() {
                                                         label="Distribute Form"
                                                         onClick={() => {
                                                             setSharingMode('COLLECT');
+
+                                                            // Auto-select own lab if restricted
+                                                            const canShareInterLab = hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB);
+                                                            if (!canShareInterLab && currentUser?.labName) {
+                                                                setSelectedSharedLabs([currentUser.labName]);
+                                                            } else {
+                                                                setSelectedSharedLabs([]);
+                                                            }
+
                                                             setIsSharingModalOpen(true);
                                                         }}
                                                         icon={<Share2 className="w-4 h-4" />}

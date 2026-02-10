@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Reusable Mobile Card for References
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { EyeOff, Archive } from 'lucide-react';
+import { EyeOff, Archive, RotateCcw } from 'lucide-react';
 import type { Reference } from '../../types/Reference.type';
 
 interface ReferenceMobileCardProps {
@@ -81,8 +81,13 @@ export const ReferenceMobileCard: React.FC<ReferenceMobileCardProps> = ({
                 )}
             </div>
 
-            {(row.isHidden || row.isArchived) && (
-                <div className="flex gap-3 pt-2 border-t border-gray-50">
+            {(row.isHidden || row.isArchived || row.reopenRequest) && (
+                <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-50">
+                    {row.reopenRequest && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 font-bold uppercase font-heading animate-blink">
+                            <RotateCcw className="w-3 h-3" /> Reopen Request
+                        </span>
+                    )}
                     {row.isHidden && (
                         <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase font-heading">
                             <EyeOff className="w-3 h-3" /> Hidden

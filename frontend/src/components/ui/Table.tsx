@@ -20,6 +20,7 @@ type TableProps<T> = {
   onSort?: (key: string, direction: 'asc' | 'desc') => void;
   sortConfig?: { key: string; direction: 'asc' | 'desc' } | null;
   columnWidths?: { [key: string]: string };
+  getRowClassName?: (row: T) => string;
 };
 
 function Table<T extends { [key: string]: any }>({
@@ -29,7 +30,8 @@ function Table<T extends { [key: string]: any }>({
   customHeaderRenderers,
   onSort,
   sortConfig: externalSortConfig,
-  columnWidths
+  columnWidths,
+  getRowClassName
 }: TableProps<T>) {
   const [filters] = useState<{ [key: string]: string }>({});
   const [internalSortConfig, setInternalSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -123,7 +125,10 @@ function Table<T extends { [key: string]: any }>({
         </thead>
         <tbody>
           {sortedRows.map((row, index) => (
-            <tr key={index} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors last:border-b-0">
+            <tr
+              key={index}
+              className={`border-b border-gray-100 hover:bg-gray-50/50 transition-colors last:border-b-0 ${getRowClassName ? getRowClassName(row) : ''}`}
+            >
               {keys.map(key => (
                 <td
                   key={key}

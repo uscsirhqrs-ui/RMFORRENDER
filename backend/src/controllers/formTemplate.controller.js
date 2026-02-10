@@ -1,289 +1,240 @@
+/**
+ * @fileoverview API Controller - Handles HTTP requests and business logic
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiErrors from "../utils/ApiErrors.js";
 import { FormTemplate } from "../models/formTemplate.model.js";
-import { CollectedData } from "../models/collectedData.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { logActivity } from "../utils/audit.utils.js";
-import { User } from "../models/user.model.js";
-import { createNotification } from "./notification.controller.js";
-import { sendEmail, getFormSharedEmailTemplate } from "../utils/mail.js";
 
 /**
- * Creates a new form template.
+ * Creates a new form blueprint (Reusable Template).
  */
-import { processFormDistribution } from "../utils/backgroundService.js";
-import { BackgroundTask } from "../models/backgroundTask.model.js";
+const createBlueprint = asyncHandler(async (req, res) => {
+    const { title, description, fields, isPublic, category } = req.body;
 
-/**
- * Creates a new form template.
- */
-const createTemplate = asyncHandler(async (req, res) => {
-    const { title, description, fields, sharedWithLabs, sharedWithUsers, isPublic, deadline } = req.body;
-
-    if (!title || !fields || !Array.isArray(fields) || fields.length === 0) {
+    if (!title || !fields || fields.length === 0) {
         throw new ApiErrors("Title and at least one field are required", 400);
     }
 
-    const template = await FormTemplate.create({
+    // Add Mandatory Declaration Section
+    const declarationField = {
+        id: "declaration_checkbox",
+        type: "checkbox",
+        label: "I hereby declare that the information provided above is true and correct to the best of my knowledge and belief.",
+        section: "Declaration",
+        required: true
+    };
+
+    // Append to fields
+    const updatedFields = [...fields, declarationField];
+
+    const blueprint = await FormTemplate.create({
         title,
         description,
-        fields,
-        sharedWithLabs: sharedWithLabs || [],
-        sharedWithUsers: sharedWithUsers || [],
+        fields: updatedFields,
         isPublic: isPublic || false,
-        allowMultipleSubmissions: req.body.allowMultipleSubmissions || false,
-        isActive: req.body.isActive !== undefined ? req.body.isActive : true,
-        deadline: deadline || null,
+        category: category || "General",
         createdBy: req.user._id
     });
 
-    await logActivity(req, "FORM_TEMPLATE_CREATE", "FormTemplate", template._id, { after: template }, req.user._id);
-
-    // Create Background Task for Distribution
-    let taskId = null;
-    if ((sharedWithUsers && sharedWithUsers.length > 0) || (sharedWithLabs && sharedWithLabs.length > 0)) {
-        const bgTask = await BackgroundTask.create({
-            user: req.user._id,
-            type: "FORM_DISTRIBUTION",
-            status: "PENDING",
-            metadata: {
-                templateId: template._id.toString(),
-                templateTitle: template.title
-            }
-        });
-        taskId = bgTask._id;
-
-        // Process in background (FIRE AND FORGET)
-        processFormDistribution(bgTask._id, template, req.user, "SHARED");
-    }
-
     return res.status(201).json(
-        new ApiResponse(201, "Form template created successfully. Distribution is running in background.", {
-            ...template.toObject(),
-            taskId
-        })
+        new ApiResponse(201, "Blueprint created successfully", blueprint)
     );
 });
 
 /**
- * Updates an existing form template.
+ * Gets blueprints (Templates) accessible to the user.
+ * Returns public blueprints + blueprints created by the user.
  */
-const updateTemplate = asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const { title, description, fields, sharedWithLabs, sharedWithUsers, isPublic, deadline } = req.body;
-
-    const template = await FormTemplate.findById(id);
-
-    if (!template) {
-        throw new ApiErrors("Form template not found", 404);
-    }
-
-    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
-    if (template.createdBy.toString() !== req.user._id.toString() && !isSuperadmin) {
-        throw new ApiErrors("Unauthorized to update this template", 403);
-    }
-
-    const previousState = { ...template.toObject() };
-
-    template.title = title || template.title;
-    template.description = description || template.description;
-    template.fields = fields || template.fields;
-    template.sharedWithLabs = sharedWithLabs || template.sharedWithLabs;
-    template.sharedWithUsers = sharedWithUsers || template.sharedWithUsers;
-    template.isPublic = isPublic !== undefined ? isPublic : template.isPublic;
-    template.allowMultipleSubmissions = req.body.allowMultipleSubmissions !== undefined ? req.body.allowMultipleSubmissions : template.allowMultipleSubmissions;
-    template.isActive = req.body.isActive !== undefined ? req.body.isActive : template.isActive;
-    template.deadline = deadline !== undefined ? deadline : template.deadline;
-
-    await template.save();
-
-    await logActivity(req, "FORM_TEMPLATE_UPDATE", "FormTemplate", template._id, { before: previousState, after: template }, req.user._id);
-
-    const { notifyUsers } = req.body;
-    let taskId = null;
-
-    if (notifyUsers !== false) {
-        // Create Background Task to update users
-        // Only if there are users to update
-        let shouldNotify = false;
-        if ((template.sharedWithUsers && template.sharedWithUsers.length > 0) || (template.sharedWithLabs && template.sharedWithLabs.length > 0)) {
-            shouldNotify = true;
-        }
-
-        if (shouldNotify) {
-            const bgTask = await BackgroundTask.create({
-                user: req.user._id,
-                type: "FORM_DISTRIBUTION",
-                status: "PENDING",
-                metadata: {
-                    templateId: template._id.toString(),
-                    templateTitle: template.title
-                }
-            });
-            taskId = bgTask._id;
-
-            // Process in background
-            processFormDistribution(bgTask._id, template, req.user, "UPDATED", previousState);
-        }
-    }
-
-    return res.status(200).json(
-        new ApiResponse(200, "Form template updated successfully. Notifications are sending in background.", {
-            ...template.toObject(),
-            taskId
-        })
-    );
-});
-
-/**
- * Gets templates created by or accessible to the user.
- */
-const getTemplates = asyncHandler(async (req, res) => {
+const getBlueprints = asyncHandler(async (req, res) => {
     const user = req.user;
-    const { mineOnly } = req.query;
-
     const isSuperadmin = ['superadmin', 'admin'].includes(user.role?.toLowerCase());
 
+    const { mineOnly } = req.query;
+
     let filter = {};
+
     if (mineOnly === 'true') {
         filter = { createdBy: user._id };
-    } else if (!isSuperadmin) {
+    } else {
+        // Show my blueprints + public blueprints
         filter = {
             $or: [
                 { createdBy: user._id },
-                { sharedWithUsers: user._id },
-                { sharedWithLabs: user.labName },
                 { isPublic: true }
             ]
         };
     }
 
-    let templates = await FormTemplate.find(filter)
+    const blueprints = await FormTemplate.find(filter)
         .populate('createdBy', 'fullName designation labName')
         .sort({ createdAt: -1 });
 
-    const templatesWithStatus = await Promise.all(templates.map(async (template) => {
-        const isSubmitted = await CollectedData.exists({
-            templateId: template._id,
-            submittedBy: user._id
-        });
-
-        const responseCount = await CollectedData.countDocuments({
-            templateId: template._id
-        });
-
-        const templateObj = template.toObject();
-        return {
-            ...templateObj,
-            isSubmitted: !!isSubmitted,
-            responseCount: responseCount || 0
-        };
-    }));
-
     return res.status(200).json(
-        new ApiResponse(200, "Templates fetched successfully", templatesWithStatus)
+        new ApiResponse(200, "Blueprints fetched successfully", blueprints)
     );
 });
 
 /**
- * Gets a specific form template by ID.
+ * Gets a specific blueprint by ID.
+ * Used for "Use this Template".
  */
-const getTemplateById = asyncHandler(async (req, res) => {
+const getBlueprintById = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const template = await FormTemplate.findById(id).populate('createdBy', 'fullName designation labName');
+    const blueprint = await FormTemplate.findById(id).populate('createdBy', 'fullName designation labName');
 
-    if (!template) {
-        throw new ApiErrors("Form template not found", 404);
+    if (!blueprint) {
+        throw new ApiErrors("Blueprint not found", 404);
     }
 
-    const user = req.user;
-    const isCreator = template.createdBy?._id?.toString() === user._id.toString();
-    const isSharedUser = template.sharedWithUsers.includes(user._id);
-    const isSharedLab = template.sharedWithLabs.includes(user.labName);
-    const isPublic = template.isPublic;
-    const isSuperadmin = ['superadmin', 'admin'].includes(user.role?.toLowerCase());
+    // Access check: Only creator or if public
+    const isCreator = blueprint.createdBy._id.toString() === req.user._id.toString();
+    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
 
-    if (!isCreator && !isSharedUser && !isSharedLab && !isPublic && !isSuperadmin) {
-        throw new ApiErrors("Unauthorized to access this template", 403);
+    if (!isCreator && !blueprint.isPublic && !isSuperadmin) {
+        throw new ApiErrors("Unauthorized to access this blueprint", 403);
     }
 
     return res.status(200).json(
-        new ApiResponse(200, "Template fetched successfully", template)
+        new ApiResponse(200, "Blueprint fetched successfully", blueprint)
     );
 });
 
 /**
- * Deletes a form template.
+ * Deletes a blueprint.
  */
-const deleteTemplate = asyncHandler(async (req, res) => {
+const deleteBlueprint = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const template = await FormTemplate.findById(id);
+    const blueprint = await FormTemplate.findById(id);
 
-    if (!template) {
-        throw new ApiErrors("Form template not found", 404);
+    if (!blueprint) {
+        throw new ApiErrors("Blueprint not found", 404);
     }
 
-    const isCreator = template.createdBy.toString() === req.user._id.toString();
+    const isCreator = blueprint.createdBy.toString() === req.user._id.toString();
     const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
 
     if (!isCreator && !isSuperadmin) {
-        throw new ApiErrors("Unauthorized to delete this template", 403);
+        throw new ApiErrors("Unauthorized to delete this blueprint", 403);
     }
 
     await FormTemplate.findByIdAndDelete(id);
 
     return res.status(200).json(
-        new ApiResponse(200, "Template deleted successfully", null)
+        new ApiResponse(200, "Blueprint deleted successfully", null)
     );
 });
 
 /**
- * Clones a form template for the current user.
+ * Shares a blueprint copy with target users.
+ * Each recipient gets their own editable copy.
  */
-const cloneTemplate = asyncHandler(async (req, res) => {
+const shareBlueprintCopy = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const template = await FormTemplate.findById(id);
+    const { targetUserIds } = req.body;
 
-    if (!template) {
-        throw new ApiErrors("Form template not found", 404);
+    if (!targetUserIds || !Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+        throw new ApiErrors("Target user IDs are required", 400);
     }
 
-    const user = req.user;
-    const isCreator = template.createdBy.toString() === user._id.toString();
-    const isSharedUser = template.sharedWithUsers.includes(user._id);
-    const isSharedLab = template.sharedWithLabs.includes(user.labName);
-    const isPublic = template.isPublic;
-    const isSuperadmin = ['superadmin', 'admin'].includes(user.role?.toLowerCase());
-
-    if (!isCreator && !isSharedUser && !isSharedLab && !isPublic && !isSuperadmin) {
-        throw new ApiErrors("Unauthorized to access this template", 403);
+    // Fetch the original blueprint
+    const originalBlueprint = await FormTemplate.findById(id);
+    if (!originalBlueprint) {
+        throw new ApiErrors("Blueprint not found", 404);
     }
 
-    const clonedTemplate = await FormTemplate.create({
-        title: `Copy of ${template.title}`,
-        description: template.description,
-        fields: template.fields,
-        createdBy: user._id,
-        sharedWithLabs: [],
-        sharedWithUsers: [],
-        isPublic: false
-    });
+    // Access check: Only creator or public blueprints can be shared
+    const isCreator = originalBlueprint.createdBy.toString() === req.user._id.toString();
+    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
 
-    await logActivity(req, "FORM_TEMPLATE_CLONE", "FormTemplate", clonedTemplate._id, {
-        sourceTemplateId: template._id,
-        newTemplate: clonedTemplate
-    }, user._id);
+    if (!isCreator && !originalBlueprint.isPublic && !isSuperadmin) {
+        throw new ApiErrors("Unauthorized to share this blueprint", 403);
+    }
 
-    return res.status(201).json(
-        new ApiResponse(201, "Template cloned successfully", clonedTemplate)
+    // Create copies for each target user
+    const createdCopies = [];
+    for (const targetUserId of targetUserIds) {
+        const blueprintCopy = await FormTemplate.create({
+            title: `SharedCopy-${originalBlueprint.title}`,
+            description: originalBlueprint.description,
+            fields: originalBlueprint.fields,
+            category: originalBlueprint.category,
+            isPublic: false, // Recipients get private copies
+            createdBy: targetUserId
+        });
+        createdCopies.push(blueprintCopy);
+
+        // Send notification to recipient
+        try {
+            const { createNotification } = await import('./notification.controller.js');
+            await createNotification(
+                targetUserId,
+                'form_blueprint_shared',
+                'Blueprint Shared With You',
+                `${req.user.fullName || req.user.email} shared a form blueprint "${originalBlueprint.title}" with you.`,
+                blueprintCopy._id,
+                'FormTemplate'
+            );
+        } catch (error) {
+            console.error(`Failed to send notification to user ${targetUserId}:`, error);
+        }
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, `Blueprint shared with ${createdCopies.length} user(s)`, {
+            count: createdCopies.length,
+            sharedWith: targetUserIds
+        })
     );
 });
 
 export {
-    createTemplate,
-    updateTemplate,
-    getTemplates,
-    getTemplateById,
-    deleteTemplate,
-    cloneTemplate
+    createBlueprint as createTemplate,
+    getBlueprints as getTemplates,
+    getBlueprintById as getTemplateById,
+    deleteBlueprint as deleteTemplate,
+    shareBlueprintCopy as shareTemplate,
+    updateBlueprint as updateTemplate
 };
+
+/**
+ * Updates an existing form blueprint.
+ */
+const updateBlueprint = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { title, description, fields, category, isPublic } = req.body;
+
+    const blueprint = await FormTemplate.findById(id);
+
+    if (!blueprint) {
+        throw new ApiErrors("Blueprint not found", 404);
+    }
+
+    const isCreator = blueprint.createdBy.toString() === req.user._id.toString();
+    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
+
+    if (!isCreator && !isSuperadmin) {
+        throw new ApiErrors("Unauthorized to update this blueprint", 403);
+    }
+
+    // Update fields if provided
+    if (title) blueprint.title = title;
+    if (description !== undefined) blueprint.description = description;
+    if (fields) blueprint.fields = fields;
+    if (category) blueprint.category = category;
+    if (isPublic !== undefined) blueprint.isPublic = isPublic;
+
+    await blueprint.save();
+
+    return res.status(200).json(
+        new ApiResponse(200, "Blueprint updated successfully", blueprint)
+    );
+});
+

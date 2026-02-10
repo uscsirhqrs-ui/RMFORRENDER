@@ -11,6 +11,7 @@
 import mongoose, { Schema } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { SUPERADMIN_ROLE_NAME } from "../constants.js";
 
 const userSchema = new Schema(
@@ -72,6 +73,11 @@ const userSchema = new Schema(
     },
     refreshToken: {
       type: String,
+      // JWT plaintext stored temporarily for single rotation cycle
+    },
+    refreshTokenHash: {
+      type: String,
+      // HMAC-SHA256 hash for secure comparison without plaintext storage
     },
     resetPasswordToken: {
       type: String,
@@ -112,6 +118,15 @@ const userSchema = new Schema(
     },
     parichayTokenExpiry: {
       type: Date,
+    },
+    aiUsage: {
+      lastGeneratedDate: {
+        type: Date,
+      },
+      count: {
+        type: Number,
+        default: 0,
+      }
     },
   },
   {
@@ -162,12 +177,26 @@ userSchema.pre('save', async function (next) {
     const hashedPassword = await bcrypt.hash(user.password, salt);
     user.password = hashedPassword;
   }
+
+  // Hash refresh token before storage
+  if (user.isModified('refreshToken') && user.refreshToken) {
+    const hash = crypto.createHmac('sha256', process.env.REFRESH_TOKEN_SECRET || 'fallback-secret');
+    hash.update(user.refreshToken);
+    user.refreshTokenHash = hash.digest('hex');
+  }
   next();
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
   const user = this;
   return await bcrypt.compare(password, user.password);
+};
+
+userSchema.methods.compareRefreshToken = function (incomingToken) {
+  // Hash incoming token and compare with stored hash
+  const hash = crypto.createHmac('sha256', process.env.REFRESH_TOKEN_SECRET || 'fallback-secret');
+  hash.update(incomingToken);
+  return this.refreshTokenHash === hash.digest('hex');
 };
 
 userSchema.methods.generateAccessToken = function () {
@@ -198,7 +227,7 @@ userSchema.methods.generateRefreshToken = function () {
 };
 
 userSchema.methods.generateResetPasswordToken = function () {
-  console.log("reached in generateResetPasswordToken ");
+
   return jwt.sign(
     {
       _id: this._id,
@@ -222,5 +251,9 @@ userSchema.methods.generateActivationToken = function () {
   );
 };
 
+userSchema.methods.clearRefreshToken = function () {
+  this.refreshToken = undefined;
+  this.refreshTokenHash = undefined;
+};
 
 export const User = mongoose.model('User', userSchema);

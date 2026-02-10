@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Modal for bulk updating references
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

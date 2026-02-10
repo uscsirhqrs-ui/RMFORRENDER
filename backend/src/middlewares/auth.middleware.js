@@ -48,7 +48,14 @@ export const verifyJWT = asyncHandler(async (req, _, next) => {
             await user.save({ validateBeforeSave: false }); // Bypass validation to just save the fix
         }
 
-        req.user = user;
+        // Check for Designation-based approval authority
+        const config = await SystemConfig.findOne({ key: "APPROVAL_AUTHORITY_DESIGNATIONS" });
+        const allowedDesignations = config?.value || [];
+
+        const userObj = user.toObject();
+        userObj.hasApprovalAuthority = allowedDesignations.includes(user.designation);
+
+        req.user = userObj;
         next();
 
     }

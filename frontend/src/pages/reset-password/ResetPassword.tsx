@@ -36,7 +36,7 @@ const ResetPassword: React.FC = () => {
       try {
         if (token && userId) {
           const response = await verifyResetLink({ userId, token });
-          console.log("returned from backend:", response);
+
           if (response.success) {
             setIsTokenValid(true);
             window.history.replaceState({}, document.title, window.location.pathname);

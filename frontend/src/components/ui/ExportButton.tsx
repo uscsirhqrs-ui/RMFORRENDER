@@ -1,3 +1,13 @@
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import React, { useState } from 'react';
 import { Download, FileText, Table as TableIcon, Loader2 } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../../utils/exportUtils';

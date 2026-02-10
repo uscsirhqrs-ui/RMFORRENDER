@@ -1,13 +1,24 @@
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import Button from '../../components/ui/Button';
 import {
-    Plus, Trash2, Copy,
+    Plus, Trash2, Copy, Share2, Edit,
     Sparkles, Search, MoreVertical, LayoutTemplate
 } from 'lucide-react';
 import { getBlueprints, deleteBlueprint } from '../../services/form.api';
 import { useMessageBox } from '../../context/MessageBoxContext';
+import ShareTemplateModal from '../../components/ui/ShareTemplateModal';
 
 export default function SavedTemplatesPage() {
     const navigate = useNavigate();
@@ -16,11 +27,25 @@ export default function SavedTemplatesPage() {
     const [templates, setTemplates] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+    const [selectedBlueprint, setSelectedBlueprint] = useState<any>(null);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
 
     useEffect(() => {
         fetchBlueprints();
     }, []);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (openMenuId && !(event.target as Element).closest('.menu-dropdown')) {
+                setOpenMenuId(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [openMenuId]);
 
     const fetchBlueprints = async () => {
         setIsLoading(true);
@@ -123,10 +148,68 @@ export default function SavedTemplatesPage() {
                                             </div>
                                         </div>
                                         {/* Actions Menu */}
-                                        <div className="relative group/menu">
-                                            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                                        <div className="relative menu-dropdown">
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenMenuId(openMenuId === template._id ? null : template._id);
+                                                }}
+                                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                            >
                                                 <MoreVertical className="w-4 h-4 text-gray-400" />
                                             </button>
+
+                                            {/* Dropdown Menu */}
+                                            {openMenuId === template._id && (
+                                                <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                                    <button
+                                                        onClick={() => {
+                                                            navigate(`/data-collection/create?editBlueprint=${template._id}`);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        title="Edit Blueprint"
+                                                        className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Edit className="w-4 h-4 text-gray-400 shrink-0" />
+                                                        <span className="truncate">Edit</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedBlueprint(template);
+                                                            setShareModalOpen(true);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        title="Share Blueprint"
+                                                        className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Share2 className="w-4 h-4 text-indigo-400 shrink-0" />
+                                                        <span className="truncate">Share</span>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            navigate(`/data-collection/create?useBlueprint=${template._id}`);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        title="Duplicate Blueprint"
+                                                        className="w-full px-3 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Copy className="w-4 h-4 text-blue-400 shrink-0" />
+                                                        <span className="truncate">Duplicate</span>
+                                                    </button>
+                                                    <div className="h-px bg-gray-100 dark:bg-gray-700 my-1" />
+                                                    <button
+                                                        onClick={() => {
+                                                            handleDelete(template._id);
+                                                            setOpenMenuId(null);
+                                                        }}
+                                                        title="Delete Blueprint"
+                                                        className="w-full px-3 py-2 text-left text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 shrink-0" />
+                                                        <span className="truncate">Delete</span>
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -140,8 +223,18 @@ export default function SavedTemplatesPage() {
                                             label="Use This Template"
                                             onClick={() => navigate(`/data-collection/create?useBlueprint=${template._id}`)}
                                             icon={<Copy className="w-3.5 h-3.5" />}
-                                            className="w-full text-[11px]"
+                                            className="flex-1 text-[11px]"
                                         />
+                                        <button
+                                            onClick={() => {
+                                                setSelectedBlueprint(template);
+                                                setShareModalOpen(true);
+                                            }}
+                                            className="flex items-center justify-center p-2 rounded-lg border border-indigo-50 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 hover:border-indigo-100 transition-all"
+                                            title="Share Blueprint"
+                                        >
+                                            <Share2 className="w-4 h-4" />
+                                        </button>
                                         <button
                                             onClick={() => handleDelete(template._id)}
                                             className="flex items-center justify-center p-2 rounded-lg border border-red-50 text-red-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-all"
@@ -183,6 +276,19 @@ export default function SavedTemplatesPage() {
                     </div>
                 )}
             </div>
+
+            {/* Share Template Modal */}
+            {selectedBlueprint && (
+                <ShareTemplateModal
+                    isOpen={shareModalOpen}
+                    onClose={() => {
+                        setShareModalOpen(false);
+                        setSelectedBlueprint(null);
+                    }}
+                    blueprintId={selectedBlueprint._id}
+                    blueprintTitle={selectedBlueprint.title}
+                />
+            )}
         </div>
     );
 }

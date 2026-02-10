@@ -1,5 +1,5 @@
 /**
- * @fileoverview Utility Functions - Helper functions for reference management
+ * @fileoverview Utility Functions - Helper functions and common utilities
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

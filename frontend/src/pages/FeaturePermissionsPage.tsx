@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Page for managing Feature Access Control
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -57,20 +57,38 @@ const FeaturePermissionsPage: React.FC = () => {
         }
     };
 
-    const handleTogglePermission = async (featureName: string, role: string) => {
+    const handleTogglePermission = async (featureKey: string, role: string) => {
+        const sensitiveFeatures: string[] = [
+            FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES,
+            FeatureCodes.FEATURE_AUDIT_TRAILS,
+            FeatureCodes.FEATURE_SYSTEM_CONFIGURATION
+        ];
+
         // Warning for sensitive permissions
-        if ((featureName === "Audit Trails" || featureName === "System Configuration") && role !== SUPERADMIN_ROLE_NAME) {
-            const currentItem = featurePermissions.find(p => p.feature === featureName);
+        if (sensitiveFeatures.includes(featureKey) && role !== SUPERADMIN_ROLE_NAME) {
+            const currentItem = featurePermissions.find(p => p.feature === featureKey);
             const isGranting = currentItem && !currentItem.roles.includes(role);
 
             if (isGranting) {
                 const confirmed = await showConfirm({
-                    title: 'Granting Sensitive Access',
-                    message: `⚠️ WARNING: You are about to grant '${featureName}' access to '${role}'.\n\n` +
-                        `This feature grants high-level system access. Only Superadmins should typically have this access.\n\n` +
-                        `Are you sure you want to proceed?`,
+                    title: 'CRITICAL: Granting Sensitive Access',
+                    message: (
+                        <div className="space-y-4">
+                            <p className="text-red-600 font-bold">
+                                ⚠️ WARNING: You are about to grant administrative access to a non-Superadmin role.
+                            </p>
+                            <p className="text-gray-700">
+                                Feature: <span className="font-bold underline">"{currentItem?.label || featureKey}"</span> for role <span className="font-bold underline">"{role}"</span>.
+                            </p>
+                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-200 text-sm text-amber-800">
+                                This feature grants high-level system access. Only Superadmins should typically have this access.
+                                Granting this to other roles may compromise system security and data integrity.
+                            </div>
+                            <p className="font-medium">Are you sure you want to proceed?</p>
+                        </div>
+                    ),
                     type: 'warning',
-                    confirmText: 'Grant Access',
+                    confirmText: 'Yes, Grant Access',
                     cancelText: 'Cancel'
                 });
                 if (!confirmed) return;
@@ -78,7 +96,7 @@ const FeaturePermissionsPage: React.FC = () => {
         }
 
         const updatedPermissions = featurePermissions.map(item => {
-            if (item.feature === featureName) {
+            if (item.feature === featureKey) {
                 const hasRole = item.roles.includes(role);
                 const newRoles = hasRole
                     ? item.roles.filter((r: string) => r !== role)

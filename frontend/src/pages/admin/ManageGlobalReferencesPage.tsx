@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Manage Global References (Admin Page)
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -376,6 +376,7 @@ const ManageGlobalReferencesPage = () => {
                         rows={references}
                         visibleColumns={visibleColumns}
                         columnWidths={{ selection: '48px', refId: '120px', subject: '400px' }}
+                        getRowClassName={(row) => row.reopenRequest ? 'animate-row-flash' : ''}
                         customHeaderRenderers={{
                             selection: () => (
                                 <input
@@ -407,6 +408,11 @@ const ManageGlobalReferencesPage = () => {
                                     <Link to={`/references/global/${row._id}`} className="font-semibold text-gray-900 truncate hover:text-indigo-600 hover:underline" title={row.subject}>
                                         {row.subject}
                                     </Link>
+                                    {row.reopenRequest && (
+                                        <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 font-bold uppercase mt-0.5 animate-blink">
+                                            <RotateCcw className="w-2.5 h-2.5" /> Reopen Request
+                                        </span>
+                                    )}
                                     {row.isHidden && (
                                         <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 font-bold uppercase mt-0.5">
                                             <EyeOff className="w-2.5 h-2.5" /> Hidden

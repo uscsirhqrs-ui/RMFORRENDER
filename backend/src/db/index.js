@@ -9,15 +9,28 @@
  */
 
 import mongoose from "mongoose";
-import { DB_NAME } from "../constants.js";
 
 
 const connectDB = async () => {
     try {
+        // Auto-detect database based on environment
+        let DB_NAME;
+
+        if (process.env.DB_NAME) {
+            // Use explicit DB_NAME if provided in .env
+            DB_NAME = process.env.DB_NAME;
+        } else if (process.env.NODE_ENV === 'production') {
+            // Production environment - use production database
+            DB_NAME = 'references_management_portal';
+        } else {
+            // Development/localhost environment - use testing database
+            DB_NAME = 'testing_portal_references_management';
+        }
+
         const uri = process.env.MONGODB_URI?.replace(/\/$/, ""); // Remove trailing slash if present
         const connectionInstance = await mongoose.connect(`${uri}/${DB_NAME}`);
         console.log(`MongoDB connected: ${connectionInstance.connection.host}`);
-        console.log({ DB_NAME })
+        console.log({ DB_NAME, NODE_ENV: process.env.NODE_ENV || 'development' });
 
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);

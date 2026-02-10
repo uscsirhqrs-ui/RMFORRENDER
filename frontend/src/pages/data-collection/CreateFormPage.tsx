@@ -1,28 +1,44 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
+import { useState, useRef, useEffect } from 'react';
 import Tesseract from 'tesseract.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import InputField from '../../components/ui/InputField';
 import Button from '../../components/ui/Button';
 import {
     Sparkles, Save, Upload, FileText,
     CheckCircle2, Share2, Settings2, Plus,
-    X, Download, Image as ImageIcon, Link, ArrowLeft, Eye
+    X, Download, Image as ImageIcon, ArrowLeft, Eye,
+    ShieldAlert, Cpu, RefreshCcw
 } from 'lucide-react';
-import { getAllUsers } from '../../services/user.api';
-import { createFormTemplate, updateFormTemplate, getFormTemplateById, shareTemplateCopy, getBlueprintById, createBlueprint } from '../../services/form.api';
+import { createActiveForm, updateActiveForm, getActiveFormById, getBlueprintById, createBlueprint, updateBlueprint } from '../../services/form.api';
+import { generateAIForm, getAIUsage } from '../../services/ai.api';
 
 import { useAuth } from '../../context/AuthContext';
 import DropDownWithSearch from '../../components/ui/DropDownWithSearch';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import Papa from 'papaparse';
 import { useMessageBox } from '../../context/MessageBoxContext';
+import DistributeFormModal from '../../components/ui/DistributeFormModal';
+import type { DistributionData } from '../../components/ui/DistributeFormModal';
 
 interface FormField {
     id: string;
-    type: 'text' | 'select' | 'date' | 'radio' | 'checkbox';
+    type: 'text' | 'select' | 'date' | 'radio' | 'checkbox' | 'file' | 'header';
     label: string;
     placeholder?: string;
+    section?: string;
+    columnSpan?: number;
+    description?: string;
     options?: { label: string; value: string }[];
     required?: boolean;
     validation?: {
@@ -44,9 +60,10 @@ export default function CreateFormPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { showMessage } = useMessageBox();
-    const { user: currentUser } = useAuth();
+    const { } = useAuth();
     const editId = searchParams.get('edit');
     const useBlueprintId = searchParams.get('useBlueprint');
+    const editBlueprintId = searchParams.get('editBlueprint');
     const directDistribute = searchParams.get('distribute') === 'true';
 
     const [prompt, setPrompt] = useState('');
@@ -62,28 +79,32 @@ export default function CreateFormPage() {
     const [saveMessage, setSaveMessage] = useState<string | null>(null);
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
     const [testFormData, setTestFormData] = useState<Record<string, any>>({});
-
-    // Sharing state
-    const [selectedSharedLabs, setSelectedSharedLabs] = useState<string[]>([]);
-    const [selectedDesignations, setSelectedDesignations] = useState<string[]>([]);
-    const [selectedSharedUsers, setSelectedSharedUsers] = useState<string[]>([]);
-    const [sharingMode] = useState<'COLLECT' | 'COPY'>('COLLECT');
+    const [aiUsage, setAiUsage] = useState({ count: 0, limit: 10 });
     const [sharingDeadline, setSharingDeadline] = useState<string>('');
-
-    // DB Data
-    const [availableLabs, setAvailableLabs] = useState<{ label: string; value: string }[]>([]);
-    const [allUsers, setAllUsers] = useState<any[]>([]);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const titleInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        fetchInitialData();
+        fetchAIUsage();
         if (editId) {
             loadTemplate(editId);
+        } else if (editBlueprintId) {
+            loadBlueprintForEditing(editBlueprintId);
         }
-    }, [editId]);
+    }, [editId, editBlueprintId]);
+
+    const fetchAIUsage = async () => {
+        try {
+            const res = await getAIUsage();
+            if (res.success) {
+                setAiUsage(res.data);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
         if (useBlueprintId) {
@@ -121,10 +142,34 @@ export default function CreateFormPage() {
         }
     };
 
+    const loadBlueprintForEditing = async (id: string) => {
+        setIsGenerating(true);
+        try {
+            const res = await getBlueprintById(id);
+            if (res.success) {
+                const blueprint = res.data;
+                setGeneratedSchema({
+                    title: blueprint.title,
+                    description: blueprint.description,
+                    fields: blueprint.fields
+                });
+                setTemplateName(blueprint.title);
+                setTemplateDescription(blueprint.description);
+                setSelectedTemplateId(blueprint._id);
+                setIsRefining(true);
+            }
+        } catch (err) {
+            console.error(err);
+            showMessage({ title: 'Error', message: "Failed to load blueprint for editing.", type: 'error' });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     const loadTemplate = async (id: string) => {
         setIsGenerating(true);
         try {
-            const res = await getFormTemplateById(id);
+            const res = await getActiveFormById(id);
             if (res.success) {
                 const template = res.data;
                 setGeneratedSchema({
@@ -137,8 +182,6 @@ export default function CreateFormPage() {
                 setSelectedTemplateId(template._id);
                 setAllowMultipleSubmissions(template.allowMultipleSubmissions || false);
                 setSharingDeadline(template.deadline ? new Date(template.deadline).toISOString().split('T')[0] : '');
-                setSelectedSharedLabs(template.sharedWithLabs || []);
-                setSelectedSharedUsers(template.sharedWithUsers || []);
 
                 if (directDistribute) {
                     setIsSharingModalOpen(true);
@@ -153,166 +196,39 @@ export default function CreateFormPage() {
         }
     };
 
-    const fetchInitialData = async () => {
-        try {
-            const usersRes = await getAllUsers(1, 100);
-
-            if (usersRes.success && usersRes.data) {
-                // The API returns a paginated object { users, pagination } or a direct array
-                const fetchedUsers = Array.isArray(usersRes.data)
-                    ? usersRes.data
-                    : (usersRes.data.users || []);
-
-                setAllUsers(fetchedUsers);
-
-                // Derive labs strictly from actual registered users
-                const userLabs = Array.from(new Set(fetchedUsers.map((u: any) => u.labName).filter(Boolean))) as string[];
-                setAvailableLabs(userLabs.sort().map(lab => ({ label: lab, value: lab })));
-            }
-        } catch (error) {
-            console.error("Error fetching initial data:", error);
-        }
-    };
-
-    const filteredDesignations = useMemo(() => {
-        if (selectedSharedLabs.length === 0) return [];
-        const filtered = allUsers.filter(u => selectedSharedLabs.includes(u.labName));
-        const designations = Array.from(new Set(filtered.map(u => u.designation).filter(Boolean))) as string[];
-        return designations.sort();
-    }, [allUsers, selectedSharedLabs]);
-
-    const filteredUsers = useMemo(() => {
-        const validUsers = allUsers.filter(u =>
-            !['admin', 'superadmin', 'delegated admin'].includes(u.role?.toLowerCase()) &&
-            u._id !== currentUser?._id // Exclude current user
-        );
-
-        if (selectedSharedLabs.length === 0 || selectedDesignations.length === 0) {
-            return [];
-        }
-
-        return validUsers.filter(u => {
-            const labMatch = selectedSharedLabs.includes(u.labName);
-            const desigMatch = selectedDesignations.includes(u.designation);
-            return labMatch && desigMatch;
-        });
-    }, [allUsers, selectedSharedLabs, selectedDesignations, currentUser]);
-
     const generateFromPrompt = async () => {
         if (!prompt.trim()) return;
         setIsGenerating(true);
         setGeneratedSchema(null);
         setIsRefining(false);
 
-        setTimeout(() => {
-            let parsedFields: FormField[] = [];
-            let formTitle = "Custom Data Form";
-
-            const numberedListRegex = /((?:\d+[\.)]|\-)\s*[^0-9\.\-]+)/g;
-            const listMatches = prompt.match(numberedListRegex);
-
-            if (listMatches && listMatches.length > 0) {
-                parsedFields = listMatches.map((matchStr, index) => {
-                    const rawText = matchStr.replace(/^(\d+[\.)]|\-)\s*/, '').trim();
-                    return parseFieldFromText(rawText, index);
+        try {
+            const res = await generateAIForm(prompt);
+            if (res.success) {
+                const schema = res.data.schema;
+                setGeneratedSchema(schema);
+                setTemplateName(schema.title);
+                setTemplateDescription(schema.description);
+                setAiUsage(prev => ({ ...prev, count: res.data.remaining ? 10 - res.data.remaining : prev.count }));
+                fetchAIUsage(); // Refresh exact count from server
+                setIsRefining(true);
+            } else {
+                showMessage({
+                    title: 'Generation Failed',
+                    message: res.message || "Failed to generate form schema.",
+                    type: 'error'
                 });
-            } else {
-                const parts = prompt.split(/,|;|\n/).map(p => p.trim()).filter(p => p.length > 2);
-                parsedFields = parts.map((part, index) => parseFieldFromText(part, index));
             }
-
-            if (parsedFields.length === 0 && prompt.length > 2) {
-                parsedFields.push(parseFieldFromText(prompt, 0));
-            }
-
-            if (parsedFields.length > 0) {
-                const firstLabel = parsedFields[0].label;
-                formTitle = `Form: ${firstLabel} & more`;
-            }
-            if (prompt.toLowerCase().includes("feedback")) formTitle = "Feedback Form";
-            if (prompt.toLowerCase().includes("inventory")) formTitle = "Inventory Form";
-            if (prompt.toLowerCase().includes("registration")) formTitle = "Registration Form";
-            if (prompt.toLowerCase().includes("lab")) formTitle = "Lab Data Collection";
-
-            const schema: FormSchema = {
-                title: formTitle,
-                description: `Generated from prompt: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`,
-                fields: parsedFields
-            };
-
-            setGeneratedSchema(schema);
-            setTemplateName(formTitle);
-            setTemplateDescription(schema.description);
+        } catch (err) {
+            console.error(err);
+            showMessage({
+                title: 'Error',
+                message: "A network error occurred during form generation.",
+                type: 'error'
+            });
+        } finally {
             setIsGenerating(false);
-            setIsRefining(true);
-        }, 800);
-    };
-
-    const parseFieldFromText = (text: string, index: number): FormField => {
-        const lowerText = text.toLowerCase();
-        let type: 'text' | 'select' | 'date' = 'text';
-        let options: { label: string; value: string }[] | undefined = undefined;
-        let placeholder = "";
-        let validation: any = {};
-
-        if (lowerText.includes('date') || lowerText.includes('when') || lowerText.includes('time')) {
-            type = 'date';
-        } else if (
-            lowerText.includes('choose') || lowerText.includes('select') ||
-            lowerText.includes('option') || lowerText.includes('dropdown') ||
-            lowerText.includes('list') || lowerText.includes('lab')
-        ) {
-            type = 'select';
-            if (lowerText.includes('lab')) {
-                options = availableLabs.length > 0 ? availableLabs : [{ label: 'Loading labs...', value: '' }];
-            } else {
-                const optionsMatch = text.match(/\((.*?)\)/);
-                if (optionsMatch) {
-                    options = optionsMatch[1].split(',').map(o => ({
-                        label: o.trim(),
-                        value: o.trim().toLowerCase().replace(/\s+/g, '_')
-                    }));
-                } else {
-                    options = [{ label: 'Option 1', value: '1' }, { label: 'Option 2', value: '2' }];
-                }
-            }
         }
-
-        if (lowerText.includes('numeric') || lowerText.includes('number') || lowerText.includes('count') || lowerText.includes('strength') || lowerText.includes('mobile') || lowerText.includes('phone') || lowerText.includes('contact')) {
-            validation.isNumeric = true;
-            placeholder = "Numbers only...";
-        } else if (lowerText.includes('email')) {
-            validation.isEmail = true;
-            placeholder = "e.g., user@example.com";
-        }
-
-        let label = text
-            .replace(/^\d+[\.)]\s*/, '')
-            .replace(/dropdown/gi, '')
-            .replace(/select/gi, '')
-            .replace(/text box/gi, '')
-            .replace(/numeric/gi, '')
-            .replace(/number/gi, '')
-            .replace(/input/gi, '')
-            .replace(/field/gi, '')
-            .replace(/requesting/gi, '')
-            .replace(/required/gi, '')
-            .split(/(-|with|having|options)/i)[0]
-            .trim();
-
-        label = label.replace(/[:\-\.]$/, '').trim();
-        if (label.length < 2) label = `Field ${index + 1}`;
-        label = label.charAt(0).toUpperCase() + label.slice(1);
-
-        return {
-            id: `field_${index}_${Math.random().toString(36).substr(2, 5)}`,
-            type,
-            label,
-            placeholder: placeholder || `Enter ${label}`,
-            required: !lowerText.includes('optional'),
-            options,
-            validation
-        };
     };
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -436,48 +352,57 @@ export default function CreateFormPage() {
         });
     };
 
-    const handleConfirmShare = async () => {
-        const finalUserIds = new Set(selectedSharedUsers);
-        if (currentUser?._id && finalUserIds.has(currentUser._id)) {
-            finalUserIds.delete(currentUser._id);
-        }
-
-        if (finalUserIds.size === 0) {
-            showMessage({ title: 'Selection Required', message: "No users selected. Please check the users you want to share with.", type: 'warning' });
-            return;
-        }
-
-        const finalUserList = Array.from(finalUserIds);
-
-        if (sharingMode === 'COLLECT') {
-            await handleSaveTemplate(true, [], finalUserList);
-        } else {
-            if (!selectedTemplateId) {
-                // If not saved yet, save first then share
-                const saveRes = await handleSaveTemplate(false);
-                if (!saveRes) return; // Save failed
-            }
-
-            setIsSaving(true);
-            try {
-                const response = await shareTemplateCopy(selectedTemplateId!, finalUserList, sharingDeadline || undefined);
-                setIsSaving(false);
-                if (response.success) {
-                    setSaveMessage(`Template shared with ${response.data.count} users!`);
-                    setTimeout(() => setSaveMessage(null), 3000);
-                    setIsSharingModalOpen(false);
-                } else {
-                    showMessage({ title: 'Share Failed', message: "Failed to share copy: " + response.message, type: 'error' });
+    const handleAddOption = (fieldId: string) => {
+        if (!generatedSchema) return;
+        setGeneratedSchema({
+            ...generatedSchema,
+            fields: generatedSchema.fields.map(f => {
+                if (f.id === fieldId) {
+                    const options = [...(f.options || [])];
+                    options.push({ label: `Option ${options.length + 1}`, value: `option_${options.length + 1}` });
+                    return { ...f, options };
                 }
-            } catch (err) {
-                console.error(err);
-                setIsSaving(false);
-                showMessage({ title: 'Error', message: "An error occurred while sharing.", type: 'error' });
-            }
-        }
+                return f;
+            })
+        });
     };
 
-    const handleSaveTemplate = async (isDistribution = false, overrideLabs?: string[], overrideUsers?: string[], asBlueprint = false) => {
+    const handleRemoveOption = (fieldId: string, index: number) => {
+        if (!generatedSchema) return;
+        setGeneratedSchema({
+            ...generatedSchema,
+            fields: generatedSchema.fields.map(f => {
+                if (f.id === fieldId && f.options) {
+                    const options = f.options.filter((_, i) => i !== index);
+                    return { ...f, options };
+                }
+                return f;
+            })
+        });
+    };
+
+    const handleUpdateOption = (fieldId: string, index: number, updates: Partial<{ label: string; value: string }>) => {
+        if (!generatedSchema) return;
+        setGeneratedSchema({
+            ...generatedSchema,
+            fields: generatedSchema.fields.map(f => {
+                if (f.id === fieldId && f.options) {
+                    const options = f.options.map((opt, i) => i === index ? { ...opt, ...updates } : opt);
+                    return { ...f, options };
+                }
+                return f;
+            })
+        });
+    };
+
+    // Override handleSaveTemplate to support updating blueprint AND distribution options
+    const handleSaveTemplate = async (
+        isDistribution = false,
+        overrideLabs?: string[],
+        overrideUsers?: string[],
+        asBlueprint = false,
+        distributionOptions?: Partial<DistributionData>
+    ) => {
         if (!generatedSchema) return false;
 
         if (!templateName || !templateDescription) {
@@ -486,32 +411,46 @@ export default function CreateFormPage() {
         }
 
         setIsSaving(true);
+        const sanitizedFields = generatedSchema.fields.map(f => ({
+            ...f,
+            type: f.type ? f.type.toLowerCase() as any : 'text',
+        }));
+
         const payload = {
             ...generatedSchema,
+            fields: sanitizedFields,
             title: templateName,
             description: templateDescription,
-            sharedWithLabs: overrideLabs ?? selectedSharedLabs,
-            sharedWithUsers: overrideUsers ?? selectedSharedUsers,
-            allowMultipleSubmissions: allowMultipleSubmissions,
-            deadline: sharingDeadline || undefined,
+            sharedWithLabs: overrideLabs ?? [],
+            sharedWithUsers: overrideUsers ?? [],
+            allowMultipleSubmissions: distributionOptions?.allowMultipleSubmissions ?? allowMultipleSubmissions,
+            deadline: (distributionOptions?.deadline ?? sharingDeadline) || undefined,
+            allowDelegation: distributionOptions?.allowDelegation ?? true, // Default to true if not specified
             notifyUsers: isDistribution,
-            isActive: true
+            isActive: true,
+            fillingInstructions: distributionOptions?.fillingInstructions
         };
 
         try {
             let response;
             if (asBlueprint) {
-                response = await createBlueprint(payload);
+                if (editBlueprintId) {
+                    // Update existing blueprint
+                    response = await updateBlueprint(editBlueprintId, payload);
+                } else {
+                    // Create new blueprint
+                    response = await createBlueprint(payload);
+                }
             } else {
                 response = selectedTemplateId
-                    ? await updateFormTemplate(selectedTemplateId, payload)
-                    : await createFormTemplate(payload);
+                    ? await updateActiveForm(selectedTemplateId, payload)
+                    : await createActiveForm(payload);
             }
 
             setIsSaving(false);
             if (response.success) {
                 setSaveMessage(
-                    asBlueprint ? "Blueprint saved successfully!" :
+                    asBlueprint ? (editBlueprintId ? "Blueprint updated successfully!" : "Blueprint saved successfully!") :
                         isDistribution ? "Form distributed successfully!" : "Template saved successfully!"
                 );
                 setTimeout(() => setSaveMessage(null), 3000);
@@ -528,7 +467,7 @@ export default function CreateFormPage() {
                     setIsRefining(false);
                 } else {
                     setIsSharingModalOpen(false);
-                    navigate('/data-collection/shared', { state: { activeTab: 'by-me' } });
+                    navigate('/data-collection/distributed-by-me', { state: { activeTab: 'by-me' } });
                 }
                 return true;
             } else {
@@ -543,55 +482,67 @@ export default function CreateFormPage() {
         }
     };
 
+    const handleDistribute = async (data: DistributionData) => {
+        // Pass the data to handleSaveTemplate
+        await handleSaveTemplate(true, [], data.targetUserIds, false, {
+            allowDelegation: data.allowDelegation,
+            allowMultipleSubmissions: data.allowMultipleSubmissions,
+            deadline: data.deadline,
+            fillingInstructions: data.fillingInstructions
+        });
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 sm:p-8">
             <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-in fade-in duration-500">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div className="flex items-center gap-6">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 lg:gap-4 mb-4 sm:mb-8">
+                    <div className="flex items-center gap-3 sm:gap-6">
                         {generatedSchema && (
                             <button
                                 onClick={() => {
-                                    if (editId || useBlueprintId) {
+                                    if (editId || useBlueprintId || editBlueprintId) {
                                         navigate('/data-collection/saved');
                                     } else {
                                         setGeneratedSchema(null);
                                         setPrompt('');
                                     }
                                 }}
-                                className="p-2.5 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:shadow group"
-                                title={(editId || useBlueprintId) ? "Back to Templates" : "Back to Generation"}
+                                className="p-2 sm:p-3 bg-white border border-gray-100 dark:bg-gray-800 dark:border-gray-700 rounded-xl hover:bg-gray-50 transition-all shadow-sm hover:shadow group shrink-0"
+                                title={(editId || useBlueprintId || editBlueprintId) ? "Back to Templates" : "Back to Generation"}
                             >
                                 <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
                             </button>
                         )}
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1 font-headline tracking-tighter">Design Center</h1>
-                            <p className="text-gray-500 dark:text-gray-400 text-xs font-bold tracking-widest opacity-60">DYNAMIC FORM ARCHITECT</p>
+                        <div className="min-w-0">
+                            <h1 className="text-2xl sm:text-4xl font-black text-gray-900 dark:text-white tracking-tight leading-tight truncate">Design Center</h1>
+                            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-bold tracking-widest opacity-60 uppercase">DYNAMIC FORM ARCHITECT</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 lg:justify-end w-full lg:w-auto">
                         {saveMessage && (
-                            <div className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold animate-in fade-in border border-emerald-100 shadow-sm flex items-center gap-2">
-                                <CheckCircle2 className="w-4 h-4" />
-                                {saveMessage}
+                            <div className="w-full lg:w-auto px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold border border-emerald-100 shadow-sm flex items-center gap-2 mb-1 lg:mb-0">
+                                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                <span className="truncate">{saveMessage}</span>
                             </div>
                         )}
                         {generatedSchema && (
-                            <>
+                            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">
                                 <Button
                                     variant={isRefining ? 'primary' : 'secondary'}
                                     size="sm"
                                     label={isRefining ? "Preview Design" : "Refine Structure"}
                                     onClick={() => setIsRefining(!isRefining)}
                                     icon={<Settings2 className="w-4 h-4" />}
+                                    className="w-full sm:w-auto"
                                 />
                                 <Button
                                     variant="secondary"
                                     size="sm"
-                                    label="Save as Blueprint"
+                                    label={editBlueprintId ? "Update Blueprint" : "Save as Blueprint"}
                                     onClick={() => handleSaveTemplate(false, undefined, undefined, true)}
                                     icon={<Save className="w-4 h-4" />}
                                     disabled={isSaving}
+                                    className="w-full sm:w-auto"
                                 />
                                 <Button
                                     variant="secondary"
@@ -606,8 +557,9 @@ export default function CreateFormPage() {
                                     }}
                                     icon={<Share2 className="w-4 h-4" />}
                                     disabled={isRefining}
+                                    className="w-full sm:w-auto"
                                 />
-                            </>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -617,15 +569,29 @@ export default function CreateFormPage() {
                         {/* AI Generator */}
                         <Card className="border-indigo-100 shadow-md flex flex-col overflow-hidden bg-white">
                             <CardHeader className="bg-slate-50 border-b border-gray-100">
-                                <CardTitle className="flex items-center gap-2 text-indigo-700">
-                                    <Sparkles className="w-5 h-5" />
-                                    AI Form Generator
-                                </CardTitle>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="flex items-center gap-2 text-indigo-700">
+                                        <Sparkles className="w-5 h-5" />
+                                        AI Form Generator
+                                    </CardTitle>
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 rounded-full border border-indigo-100">
+                                        <Cpu className="w-3 h-3 text-indigo-600" />
+                                        <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">{Math.max(0, aiUsage.limit - aiUsage.count)} left today</span>
+                                    </div>
+                                </div>
                             </CardHeader>
                             <CardContent className="pt-6 flex-1 flex flex-col gap-4">
+                                <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-start gap-2.5">
+                                    <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-[10px] font-bold text-amber-800 uppercase tracking-tight">Privacy Advisory</p>
+                                        <p className="text-[10px] text-amber-700 leading-tight">Data is processed by AI. Avoid typing classified or secret field names in your prompt.</p>
+                                    </div>
+                                </div>
+
                                 <textarea
-                                    className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 transition-all resize-none min-h-[140px] text-sm bg-gray-50/30 font-sans"
-                                    placeholder="e.g., Create a form for weekly progress reporting with project name, tasks completed, and challenges."
+                                    className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 transition-all resize-none min-h-[120px] text-sm bg-gray-50/30 font-sans"
+                                    placeholder="e.g., Create an HR form to collect data from new joining for onboarding in CSIR"
                                     value={prompt}
                                     onChange={(e) => setPrompt(e.target.value)}
                                 />
@@ -633,9 +599,9 @@ export default function CreateFormPage() {
                                     <Button
                                         onClick={generateFromPrompt}
                                         loading={isGenerating}
-                                        disabled={!prompt.trim()}
+                                        disabled={!prompt.trim() || aiUsage.count >= aiUsage.limit}
                                         icon={<Sparkles className="w-4 h-4" />}
-                                        label="Generate Form"
+                                        label={aiUsage.count >= aiUsage.limit ? "Limit Reached" : "Generate Form"}
                                     />
                                 </div>
                             </CardContent>
@@ -708,181 +674,235 @@ export default function CreateFormPage() {
                     </div>
                 ) : (
                     <Card className={`shadow-xl border-none overflow-hidden transition-all duration-500 bg-white ${isRefining ? 'ring-2 ring-indigo-500' : ''}`}>
-                        <CardHeader className={`${isRefining ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'} p-8 transition-colors`}>
-                            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                        <CardHeader className={`${isRefining ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-white'} p-4 sm:p-8 transition-colors`}>
+                            <div className="flex flex-col md:flex-row items-center md:items-center gap-4 sm:gap-6 text-center md:text-left">
                                 <div className="hidden md:flex w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md items-center justify-center border border-white/20 shrink-0">
                                     <FileText className="w-8 h-8" />
                                 </div>
-                                <div className="flex-1 w-full">
+                                <div className="flex-1 w-full flex flex-col items-center md:items-start text-center md:text-left">
                                     {isRefining ? (
-                                        <div className="space-y-4 md:space-y-2">
-                                            <div className="flex items-center gap-4 md:hidden mb-2">
-                                                <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
-                                                    <FileText className="w-6 h-6" />
-                                                </div>
-                                                <span className="text-white/60 text-xs font-bold uppercase tracking-widest">Editing Template</span>
+                                        <div className="space-y-2 w-full">
+                                            <div className="flex items-center justify-center md:justify-start gap-4 md:hidden mb-2">
+                                                <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Editing Template</span>
                                             </div>
                                             <input
                                                 ref={titleInputRef}
                                                 type="text"
                                                 value={templateName}
                                                 onChange={(e) => setTemplateName(e.target.value)}
-                                                className="bg-transparent border-b-2 border-white/30 text-2xl md:text-3xl font-bold font-headline tracking-tight text-white focus:outline-none focus:border-white w-full py-1"
+                                                className="bg-transparent border-b-2 border-white/30 text-xl sm:text-3xl font-bold font-headline tracking-tight text-white focus:outline-none focus:border-white w-full py-1 text-center md:text-left"
                                                 placeholder="Enter Form Title..."
                                             />
                                             <input
                                                 type="text"
                                                 value={templateDescription}
                                                 onChange={(e) => setTemplateDescription(e.target.value)}
-                                                className="bg-transparent border-b border-white/10 text-indigo-100 text-sm focus:outline-none focus:border-white/30 w-full py-1"
+                                                className="bg-transparent border-b border-white/10 text-indigo-100 text-xs sm:text-sm focus:outline-none focus:border-white/30 w-full py-1 text-center md:text-left"
                                                 placeholder="Add a brief description..."
                                             />
                                         </div>
                                     ) : (
-                                        <>
-                                            <h2 className="text-2xl md:text-3xl font-bold font-headline tracking-tight text-white">{templateName}</h2>
-                                            <p className="text-indigo-100/70 text-sm mt-1">{templateDescription}</p>
-                                        </>
+                                        <div className="flex flex-col items-center md:items-start">
+                                            <h2 className="text-xl sm:text-3xl font-bold font-headline tracking-tight text-white">{templateName}</h2>
+                                            <p className="text-indigo-100/70 text-xs sm:text-sm mt-1">{templateDescription}</p>
+                                        </div>
                                     )}
                                 </div>
-                                {isRefining && (
-                                    <div className="flex flex-col gap-1 w-full md:w-48 mt-4 md:mt-0">
-                                        <label className="text-[10px] font-bold text-indigo-100 uppercase tracking-widest ml-1">Deadline (Optional)</label>
-                                        <input
-                                            type="date"
-                                            value={sharingDeadline}
-                                            onChange={(e) => setSharingDeadline(e.target.value)}
-                                            className="bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-white/40 transition-all backdrop-blur-sm w-full"
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
-                                    </div>
-                                )}
                             </div>
                         </CardHeader>
 
                         <CardContent className="pt-10 pb-12">
+                            {/* AI Iteration Center - Refinement Bar */}
+                            <div className="max-w-5xl mx-auto mb-10 group px-2 sm:px-0">
+                                <div className="p-4 bg-indigo-50/40 rounded-2xl border border-indigo-100/50 flex flex-col sm:flex-row items-center gap-4 transition-all hover:bg-indigo-50/60 shadow-sm border-dashed">
+                                    <div className="flex-1 w-full relative">
+                                        <textarea
+                                            className="w-full p-3 pr-12 rounded-xl border border-indigo-100 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all outline-none text-sm bg-white/80 resize-none h-[60px] sm:h-[44px] leading-tight font-sans"
+                                            placeholder="Refine your form (e.g., 'Add a GST field', 'Group all personal fields')..."
+                                            value={prompt}
+                                            onChange={(e) => setPrompt(e.target.value)}
+                                        />
+                                        <Sparkles className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-300 pointer-events-none" />
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        label="Regenerate with AI"
+                                        onClick={generateFromPrompt}
+                                        loading={isGenerating}
+                                        disabled={!prompt.trim() || aiUsage.count >= aiUsage.limit}
+                                        icon={<RefreshCcw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />}
+                                        className="shrink-0 w-full sm:w-auto"
+                                    />
+                                </div>
+                                <div className="mt-4 sm:mt-2 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6">
+                                    <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest opacity-60">AI Iteration Center</p>
+                                    <div className="hidden sm:block h-px w-20 bg-indigo-100" />
+                                    <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest opacity-60">
+                                        {Math.max(0, aiUsage.limit - aiUsage.count)} Generations Remaining
+                                    </p>
+                                </div>
+                            </div>
+
                             {!isRefining && (
-                                <div className="max-w-xl mx-auto mb-10 bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-center gap-4 animate-in slide-in-from-top-4 duration-500">
+                                <div className="max-w-xl mx-auto mb-12 bg-indigo-50/50 border border-indigo-100 p-4 rounded-2xl flex items-center justify-center gap-4 animate-in slide-in-from-top-4 duration-500 shadow-sm">
                                     <div className="flex -space-x-2">
-                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white ring-2 ring-white">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white ring-2 ring-white shadow-sm">
                                             <Eye className="w-4 h-4" />
                                         </div>
                                     </div>
                                     <div>
                                         <p className="text-indigo-900 text-sm font-bold tracking-tight">Interactive Preview Mode</p>
-                                        <p className="text-indigo-600/70 text-[10px] uppercase font-bold tracking-widest">Testing input behavior only • Data will not be saved</p>
+                                        <p className="text-indigo-600/70 text-[10px] uppercase font-bold tracking-widest leading-none mt-1">Testing input behavior only • Data will not be saved</p>
                                     </div>
                                     <div className="ml-auto">
                                         <span className="px-2 py-1 bg-white rounded-lg border border-indigo-100 text-[10px] font-bold text-indigo-600 shadow-sm">ACTIVE TEST</span>
                                     </div>
                                 </div>
                             )}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-w-5xl mx-auto">
-                                {generatedSchema?.fields.map((field) => (
-                                    <div key={field.id} className={`${field.type === 'checkbox' ? 'md:col-span-2' : ''} relative group transition-all`}>
-                                        {isRefining && (
+
+                            {isRefining ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 max-w-5xl mx-auto">
+                                    {generatedSchema?.fields.map((field) => (
+                                        <div key={field.id} className={`${field.columnSpan === 2 || field.type === 'header' ? 'md:col-span-2' : ''} relative group transition-all`}>
                                             <button
                                                 onClick={() => handleDeleteField(field.id)}
                                                 className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                             >
-                                                <X className="w-4 h-4" onClick={(e) => e.stopPropagation()} />
+                                                <X className="w-4 h-4" />
                                             </button>
-                                        )}
 
-                                        {isRefining ? (
                                             <div className="p-6 rounded-2xl border-2 border-dashed border-indigo-100 bg-indigo-50/10 space-y-4">
-                                                <InputField
-                                                    label="Field Label"
-                                                    value={field.label}
-                                                    onChange={(e) => handleFieldUpdate(field.id, { label: e.target.value })}
-                                                />
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Type</label>
+                                                    <InputField
+                                                        label="Field Label"
+                                                        value={field.label}
+                                                        onChange={(e) => handleFieldUpdate(field.id, { label: e.target.value })}
+                                                    />
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1">Type</label>
                                                         <select
-                                                            className="w-full p-2.5 rounded-xl border border-gray-200 text-sm font-sans"
                                                             value={field.type}
                                                             onChange={(e) => handleFieldUpdate(field.id, { type: e.target.value as any })}
+                                                            className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                                                         >
                                                             <option value="text">Text Input</option>
                                                             <option value="select">Dropdown</option>
                                                             <option value="date">Date Picker</option>
-                                                            <option value="radio">Radio</option>
                                                             <option value="checkbox">Checkbox</option>
+                                                            <option value="file">File Upload</option>
+                                                            <option value="header">Section Header</option>
                                                         </select>
                                                     </div>
-                                                    {field.type === 'text' && (
-                                                        <div className="flex items-end pb-2">
-                                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={field.validation?.isNumeric}
-                                                                    onChange={(e) => handleFieldUpdate(field.id, { validation: { ...field.validation, isNumeric: e.target.checked } })}
-                                                                    className="w-4 h-4 rounded text-indigo-600"
-                                                                />
-                                                                <span className="text-xs font-bold text-gray-600">Numbers Only</span>
-                                                            </label>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <InputField
+                                                        label="Section Group"
+                                                        value={field.section || ''}
+                                                        placeholder="e.g., Personal Details"
+                                                        onChange={(e) => handleFieldUpdate(field.id, { section: e.target.value })}
+                                                    />
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest ml-1">Column Width</label>
+                                                        <select
+                                                            value={field.columnSpan || 1}
+                                                            onChange={(e) => handleFieldUpdate(field.id, { columnSpan: parseInt(e.target.value) })}
+                                                            className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl text-xs"
+                                                        >
+                                                            <option value={1}>1 Column (Half width)</option>
+                                                            <option value={2}>2 Columns (Full width)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <InputField
+                                                    label="Placeholder Text"
+                                                    value={field.placeholder || ''}
+                                                    placeholder="Example text to guide the user..."
+                                                    onChange={(e) => handleFieldUpdate(field.id, { placeholder: e.target.value })}
+                                                />
+
+                                                {/* Advanced Controls: Validation & Options */}
+                                                <div className="pt-2 flex flex-col gap-4 border-t border-indigo-100/50">
+                                                    <div className="flex items-center gap-6">
+                                                        <label className="flex items-center gap-2 cursor-pointer group/label">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={field.required}
+                                                                onChange={(e) => handleFieldUpdate(field.id, { required: e.target.checked })}
+                                                                className="w-4 h-4 rounded border-indigo-200 text-indigo-600 focus:ring-indigo-500"
+                                                            />
+                                                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group-hover/label:text-indigo-600 transition-colors">Required Field</span>
+                                                        </label>
+
+                                                        {field.type === 'text' && (
+                                                            <>
+                                                                <label className="flex items-center gap-2 cursor-pointer group/label">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={field.validation?.isNumeric}
+                                                                        onChange={(e) => handleFieldUpdate(field.id, {
+                                                                            validation: { ...field.validation, isNumeric: e.target.checked }
+                                                                        })}
+                                                                        className="w-4 h-4 rounded border-indigo-200 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group-hover/label:text-indigo-600 transition-colors">Numbers Only</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2 cursor-pointer group/label">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={field.validation?.isEmail}
+                                                                        onChange={(e) => handleFieldUpdate(field.id, {
+                                                                            validation: { ...field.validation, isEmail: e.target.checked }
+                                                                        })}
+                                                                        className="w-4 h-4 rounded border-indigo-200 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider group-hover/label:text-indigo-600 transition-colors">Email Format</span>
+                                                                </label>
+                                                            </>
+                                                        )}
+                                                    </div>
+
+                                                    {['select', 'radio', 'checkbox'].includes(field.type) && (
+                                                        <div className="space-y-3 bg-white/50 p-4 rounded-xl border border-indigo-50">
+                                                            <div className="flex items-center justify-between">
+                                                                <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Options Management</h5>
+                                                                <button
+                                                                    onClick={() => handleAddOption(field.id)}
+                                                                    className="text-indigo-600 hover:text-indigo-700 font-bold text-[10px] uppercase flex items-center gap-1"
+                                                                >
+                                                                    <Plus className="w-3 h-3" /> Add Option
+                                                                </button>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 gap-2">
+                                                                {field.options?.map((opt, idx) => (
+                                                                    <div key={idx} className="flex gap-2 group/opt">
+                                                                        <input
+                                                                            type="text"
+                                                                            className="flex-1 px-3 py-1.5 bg-white border border-indigo-100 rounded-lg text-xs outline-none focus:border-indigo-400 transition-all font-medium"
+                                                                            value={opt.label}
+                                                                            onChange={(e) => handleUpdateOption(field.id, idx, { label: e.target.value, value: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                                                                            placeholder="Option Label"
+                                                                        />
+                                                                        <button
+                                                                            onClick={() => handleRemoveOption(field.id, idx)}
+                                                                            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                                                                        >
+                                                                            <X className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                {(!field.options || field.options.length === 0) && (
+                                                                    <p className="text-[10px] text-amber-500 italic">No options added yet.</p>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                        ) : (
-                                            <div className="space-y-4">
-                                                {field.type === 'text' && (
-                                                    <InputField
-                                                        label={field.label}
-                                                        placeholder={field.placeholder}
-                                                        value={testFormData[field.id] || ''}
-                                                        onChange={(e) => setTestFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
-                                                        required={field.required}
-                                                    />
-                                                )}
+                                        </div>
+                                    ))}
 
-                                                {field.type === 'date' && (
-                                                    <div className="space-y-1">
-                                                        <label className="block text-sm font-medium text-gray-700">
-                                                            {field.label} {field.required && <span className="text-red-500">*</span>}
-                                                        </label>
-                                                        <div className="relative">
-                                                            <input
-                                                                type="date"
-                                                                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-white"
-                                                                value={testFormData[field.id] || ''}
-                                                                onChange={(e) => setTestFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
-                                                            />
-                                                            <CalendarIcon className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {field.type === 'select' && (
-                                                    <div className="space-y-1">
-                                                        <label className="block text-sm font-medium text-gray-700">
-                                                            {field.label} {field.required && <span className="text-red-500">*</span>}
-                                                        </label>
-                                                        <DropDownWithSearch
-                                                            placeholder={field.placeholder || "Select an option"}
-                                                            options={field.options || []}
-                                                            selectedValue={testFormData[field.id] || ''}
-                                                            onChange={(val) => setTestFormData(prev => ({ ...prev, [field.id]: val }))}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {['radio', 'checkbox'].includes(field.type) && (
-                                                    <div className="space-y-2">
-                                                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{field.label}</label>
-                                                        <div className="p-4 bg-slate-50 rounded-xl border border-gray-100 text-gray-400 text-sm italic">
-                                                            {field.type} inputs are currently read-only in preview.
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
-                                {isRefining && (
                                     <div className="md:col-span-2 flex flex-col gap-6 py-4">
                                         <button
                                             onClick={handleAddField}
@@ -902,251 +922,150 @@ export default function CreateFormPage() {
                                             />
                                         </div>
                                     </div>
-                                )}
-                            </div>
+                                </div>
+                            ) : (
+                                <div className="max-w-5xl mx-auto space-y-12">
+                                    {Object.entries(
+                                        generatedSchema?.fields.reduce((acc, field) => {
+                                            const section = field.section || "General Information";
+                                            if (!acc[section]) acc[section] = [];
+                                            acc[section].push(field);
+                                            return acc;
+                                        }, {} as Record<string, FormField[]>) || {}
+                                    ).map(([sectionName, fields]) => (
+                                        <div key={sectionName} className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+                                            <div className="flex items-center gap-6">
+                                                <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-200 to-transparent" />
+                                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-[0.3em] font-headline">{sectionName}</h3>
+                                                <div className="h-px flex-1 bg-linear-to-r from-transparent via-slate-200 to-transparent" />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-7">
+                                                {fields.map((field) => (
+                                                    <div
+                                                        key={field.id}
+                                                        className={`${field.columnSpan === 2 || field.type === 'header' || ['checkbox', 'radio', 'file'].includes(field.type) ? 'md:col-span-2' : ''} space-y-2`}
+                                                    >
+                                                        {field.type === 'header' ? (
+                                                            <div className="py-2 border-b-2 border-indigo-600/10 flex items-center justify-between mb-2">
+                                                                <h4 className="text-base font-bold text-slate-800 tracking-tight">{field.label}</h4>
+                                                                {field.description && <span className="text-[10px] text-slate-400 italic bg-slate-50 px-2 py-0.5 rounded">{field.description}</span>}
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                {['text', 'date', 'select'].includes(field.type) && (
+                                                                    <div className="space-y-1.5">
+                                                                        <label className="block text-xs font-bold text-slate-600 uppercase tracking-wide ml-1">
+                                                                            {field.label} {field.required && <span className="text-red-500">*</span>}
+                                                                        </label>
+                                                                        {field.type === 'text' && (
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type={field.validation?.isNumeric ? "number" : field.validation?.isEmail ? "email" : "text"}
+                                                                                    className={`w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm placeholder:text-slate-300 bg-white ${field.validation?.isEmail && testFormData[field.id] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testFormData[field.id])
+                                                                                        ? 'border-red-300 bg-red-50/10' : 'border-slate-200'
+                                                                                        }`}
+                                                                                    placeholder={field.placeholder || `Enter ${field.label}...`}
+                                                                                    value={testFormData[field.id] || ''}
+                                                                                    onChange={(e) => setTestFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                                                                />
+                                                                                {field.validation?.isEmail && testFormData[field.id] && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testFormData[field.id]) && (
+                                                                                    <p className="text-[10px] text-red-500 font-bold mt-1 ml-1 animate-in fade-in slide-in-from-top-1">Please enter a valid email address</p>
+                                                                                )}
+                                                                            </div>
+                                                                        )}
+                                                                        {field.type === 'date' && (
+                                                                            <div className="relative">
+                                                                                <input
+                                                                                    type="date"
+                                                                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-sm bg-white"
+                                                                                    value={testFormData[field.id] || ''}
+                                                                                    onChange={(e) => setTestFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                                                                />
+                                                                                <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 pointer-events-none" />
+                                                                            </div>
+                                                                        )}
+                                                                        {field.type === 'select' && (
+                                                                            <DropDownWithSearch
+                                                                                placeholder={field.placeholder || "Select option..."}
+                                                                                options={field.options || []}
+                                                                                selectedValue={testFormData[field.id] || ''}
+                                                                                onChange={(v) => setTestFormData(prev => ({ ...prev, [field.id]: v }))}
+                                                                            />
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                                {field.type === 'radio' && (
+                                                                    <div className="p-5 bg-slate-50/50 rounded-2xl border border-slate-100 space-y-4 group hover:border-indigo-200 hover:bg-white transition-all duration-300">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 group-hover:bg-indigo-600 transition-colors">
+                                                                                    <CheckCircle2 className="w-4 h-4 text-indigo-600 group-hover:text-white transition-colors" />
+                                                                                </div>
+                                                                                <p className="text-sm font-bold text-slate-700 tracking-tight">{field.label}</p>
+                                                                            </div>
+                                                                            <span className="px-2 py-1 bg-white rounded border border-slate-100 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Preview Only</span>
+                                                                        </div>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-11">
+                                                                            {field.options?.map((opt, i) => (
+                                                                                <div key={i} className="flex items-center gap-2.5 p-2 rounded-lg border border-transparent hover:border-slate-200 transition-all cursor-default">
+                                                                                    <div className="w-4 h-4 rounded-full border-2 border-slate-300 bg-white" />
+                                                                                    <span className="text-xs text-slate-600 font-medium">{opt.label}</span>
+                                                                                </div>
+                                                                            ))}
+                                                                            {(!field.options || field.options.length === 0) && (
+                                                                                <p className="text-[10px] text-amber-500 italic">No options generated for this radio group.</p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                                {['checkbox', 'file'].includes(field.type) && (
+                                                                    <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-indigo-200 hover:bg-white transition-all duration-300">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm border border-slate-100 group-hover:bg-indigo-600 transition-colors">
+                                                                                {field.type === 'file' ?
+                                                                                    <Upload className="w-5 h-5 text-indigo-600 group-hover:text-white transition-colors" /> :
+                                                                                    <CheckCircle2 className="w-5 h-5 text-indigo-600 group-hover:text-white transition-colors" />
+                                                                                }
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-sm font-bold text-slate-700 tracking-tight">{field.label}</p>
+                                                                                <p className="text-[10px] text-slate-400 mt-0.5 leading-none">{field.description || `Simulated ${field.type} control`}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="px-2 py-1 bg-white rounded border border-slate-100 text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Read Only</span>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <div className="pt-10 flex flex-col items-center">
+                                        <button className="w-full md:w-auto px-16 py-4 bg-indigo-700 text-white rounded-xl font-bold font-headline shadow-xl shadow-indigo-100 hover:bg-slate-900 transition-all hover:-translate-y-1 active:scale-95 text-lg">
+                                            Submit Form Data
+                                        </button>
+                                        <p className="text-[10px] text-slate-400 mt-4 uppercase font-bold tracking-widest opacity-50">Authorized Personnel Only • Dynamic CSR Portal</p>
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
-            </div>
+            </div >
 
-            {/* Sharing Modal */}
-            {isSharingModalOpen && (
-
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-md z-110 flex items-center justify-center p-4 animate-in fade-in duration-200">
-                    <Card className="h-[95vh] w-[95vw] md:w-full md:max-w-6xl md:h-auto md:max-h-[90vh] flex flex-col shadow-2xl border-none animate-in zoom-in-95 duration-300 overflow-hidden">
-                        <CardHeader className="bg-indigo-600 text-white p-4 md:p-6 shrink-0">
-                            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                                        <Share2 className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-xl font-bold font-headline tracking-normal">
-                                            {sharingMode === 'COPY' ? 'Share Template Copy' : 'Distribute Form'}
-                                        </CardTitle>
-                                        <CardDescription className="text-indigo-100 text-xs hidden md:block">
-                                            {sharingMode === 'COPY'
-                                                ? 'Select users to send them an independent copy of this template.'
-                                                : 'Filter by Lab and Designation to target specific users for data collection.'}
-                                        </CardDescription>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4 w-full md:w-auto justify-between">
-                                    <div className="flex flex-col gap-1 w-full md:w-auto">
-                                        <label className="text-[10px] font-bold text-white/60 uppercase tracking-widest ml-1">Optional Deadline</label>
-                                        <input
-                                            type="date"
-                                            value={sharingDeadline}
-                                            onChange={(e) => setSharingDeadline(e.target.value)}
-                                            className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-white/40 transition-colors w-full"
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setIsSharingModalOpen(false);
-                                            setSharingDeadline('');
-                                        }}
-                                        className="text-white/80 hover:text-white hover:bg-white/10 rounded-lg p-2 transition-colors ml-2"
-                                        aria-label="Close modal"
-                                    >
-                                        <X className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0 flex-1 overflow-hidden flex flex-col">
-                            <div className="flex flex-col md:flex-row flex-1 divide-y md:divide-y-0 md:divide-x divide-gray-100 overflow-y-auto md:overflow-hidden">
-
-                                {/* Column 1: Laboratories */}
-                                <div className="w-full md:w-1/4 flex flex-col bg-white shrink-0 h-[220px] md:h-auto">
-                                    <div className="p-3 md:p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">1. Laboratories</label>
-                                        <button
-                                            onClick={() => {
-                                                const allLabNames = availableLabs.map(l => l.value);
-                                                if (selectedSharedLabs.length === allLabNames.length) {
-                                                    setSelectedSharedLabs([]);
-                                                } else {
-                                                    setSelectedSharedLabs(allLabNames);
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline uppercase"
-                                        >
-                                            {selectedSharedLabs.length === availableLabs.length ? 'Deselect All' : 'Select All'}
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                                        {availableLabs.map(lab => (
-                                            <label key={lab.value} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedSharedLabs.includes(lab.value) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedSharedLabs.includes(lab.value)}
-                                                    onChange={() => {
-                                                        setSelectedSharedLabs(prev =>
-                                                            prev.includes(lab.value) ? prev.filter(l => l !== lab.value) : [...prev, lab.value]
-                                                        );
-                                                    }}
-                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
-                                                />
-                                                <span className="text-xs font-bold leading-none font-sans uppercase break-words">{lab.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Column 2: Designations */}
-                                <div className="w-full md:w-1/4 flex flex-col bg-white shrink-0 h-[220px] md:h-auto">
-                                    <div className="p-3 md:p-4 bg-white border-b border-gray-100 flex items-center justify-between sticky top-0 z-10">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">2. Designations</label>
-                                        <button
-                                            onClick={() => {
-                                                const visibleDesignations = filteredDesignations;
-                                                const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
-
-                                                if (allVisibleSelected) {
-                                                    setSelectedDesignations(prev => prev.filter(d => !visibleDesignations.includes(d)));
-                                                } else {
-                                                    setSelectedDesignations(prev => Array.from(new Set([...prev, ...visibleDesignations])));
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline uppercase"
-                                        >
-                                            {(() => {
-                                                const visibleDesignations = filteredDesignations;
-                                                const allVisibleSelected = visibleDesignations.length > 0 && visibleDesignations.every(d => selectedDesignations.includes(d));
-                                                return allVisibleSelected ? 'Deselect All' : 'Select All';
-                                            })()}
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
-                                        {filteredDesignations.length === 0 ? (
-                                            <div className="p-4 text-xs text-center text-gray-400 italic font-sans">No designations found in selected labs.</div>
-                                        ) : (
-                                            filteredDesignations.map(desig => (
-                                                <label key={desig} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${selectedDesignations.includes(desig) ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-transparent hover:bg-gray-50'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedDesignations.includes(desig)}
-                                                        onChange={() => {
-                                                            setSelectedDesignations(prev =>
-                                                                prev.includes(desig) ? prev.filter(d => d !== desig) : [...prev, desig]
-                                                            );
-                                                        }}
-                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
-                                                    />
-                                                    <span className="text-xs font-bold leading-none truncate font-sans uppercase" title={desig}>{desig}</span>
-                                                </label>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Column 3: Users */}
-                                <div className="w-full md:w-2/4 flex flex-col bg-gray-50/30 shrink-0 min-h-[300px] md:h-auto">
-                                    <div className="p-3 md:p-4 bg-gray-50/50 border-b border-gray-100 flex items-center justify-between sticky top-0 md:static z-10">
-                                        <label className="text-[10px] font-bold text-gray-400 tracking-wider font-sans uppercase">
-                                            3. Users (Filtered)
-                                        </label>
-                                        <button
-                                            onClick={() => {
-                                                const displayedUserIds = filteredUsers.map(u => u._id);
-                                                if (displayedUserIds.length > 0 && displayedUserIds.every(id => selectedSharedUsers.includes(id))) {
-                                                    setSelectedSharedUsers(prev => prev.filter(id => !displayedUserIds.includes(id)));
-                                                } else {
-                                                    setSelectedSharedUsers(prev => Array.from(new Set([...prev, ...displayedUserIds])));
-                                                }
-                                            }}
-                                            className="text-[10px] font-bold text-indigo-600 hover:underline uppercase"
-                                        >
-                                            Select / Deselect Visible
-                                        </button>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto p-3 md:p-4 grid grid-cols-1 md:grid-cols-2 gap-3 custom-scrollbar content-start">
-                                        {filteredUsers.length === 0 ? (
-                                            <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center pt-10 md:pt-20 text-gray-400">
-                                                <Share2 className="w-8 h-8 opacity-20 mb-2" />
-                                                <p className="text-xs italic text-center px-4 font-sans">
-                                                    {selectedSharedLabs.length === 0 || selectedDesignations.length === 0
-                                                        ? "Select at least one Lab and one Designation to view eligible users."
-                                                        : "No users in the selected Lab(s) match the chosen Designation(s)."}
-                                                </p>
-                                            </div>
-                                        ) : (
-                                            filteredUsers.map(u => (
-                                                <label key={u._id} title={`${u.fullName || "Unnamed"} - ${u.designation} (${u.labName})`} className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group relative ${selectedSharedUsers.includes(u._id) ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-sm'}`}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedSharedUsers.includes(u._id)}
-                                                        onChange={() => {
-                                                            setSelectedSharedUsers(prev =>
-                                                                prev.includes(u._id) ? prev.filter(id => id !== u._id) : [...prev, u._id]
-                                                            );
-                                                        }}
-                                                        className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 shrink-0"
-                                                    />
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="text-xs font-bold text-gray-900 truncate font-sans">
-                                                            {u.fullName || "Unnamed User"}
-                                                            {u.designation && <span className="text-gray-400 font-normal">, {u.designation}</span>}
-                                                        </span>
-                                                        <span className="text-[10px] text-indigo-600 font-bold tracking-normal truncate font-sans">({u.labName})</span>
-                                                    </div>
-                                                </label>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-4 md:p-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between bg-white rounded-b-xl gap-4 md:gap-0 shrink-0">
-                                <div className="space-y-4 w-full md:w-auto text-center md:text-left">
-                                    <p className="text-[10px] text-gray-400 font-medium font-sans">
-                                        {selectedSharedUsers.length} Users selected.
-                                    </p>
-                                    <label className="flex items-center justify-center md:justify-start gap-3 cursor-pointer">
-                                        <input type="checkbox" className="w-5 h-5 rounded text-indigo-600" checked={allowMultipleSubmissions} onChange={(e) => setAllowMultipleSubmissions(e.target.checked)} />
-                                        <div className="text-left font-sans">
-                                            <p className="text-sm font-bold text-gray-800">Allow Multiple Submissions</p>
-                                            <p className="text-[10px] text-gray-500">Enable repeated entries from the same user</p>
-                                        </div>
-                                    </label>
-                                </div>
-                                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                                    {sharingMode === 'COLLECT' && (
-                                        <Button
-                                            label="Copy Link"
-                                            variant="secondary"
-                                            icon={<Link className="w-4 h-4" />}
-                                            onClick={() => {
-                                                const link = `${window.location.origin}/data-collection/shared`;
-                                                navigator.clipboard.writeText(link);
-                                                showMessage({ title: 'Success', message: "Link copied to clipboard: " + link, type: 'success' });
-                                            }}
-                                            className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 w-full md:w-auto"
-                                        />
-                                    )}
-                                    <Button
-                                        label="Cancel"
-                                        variant="secondary"
-                                        onClick={() => setIsSharingModalOpen(false)}
-                                        className="w-full md:w-auto"
-                                    />
-                                    <Button
-                                        label={sharingMode === 'COPY' ? "Share Copy" : "Distribute Form"}
-                                        icon={sharingMode === 'COPY' ? <Share2 className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
-                                        onClick={handleConfirmShare}
-                                        loading={isSaving}
-                                        disabled={isSaving || selectedSharedUsers.length === 0}
-                                        className="px-8 shadow-lg shadow-indigo-200 w-full md:w-auto"
-                                    />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )
-            }
+            {/* Sharing/Distribute Modal */}
+            <DistributeFormModal
+                isOpen={isSharingModalOpen}
+                onClose={() => setIsSharingModalOpen(false)}
+                formTitle={templateName}
+                onDistribute={handleDistribute}
+                isDistributing={isSaving}
+            />
         </div >
     );
 }

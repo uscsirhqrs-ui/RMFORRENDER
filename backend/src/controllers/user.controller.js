@@ -40,7 +40,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
   try {
     const { fullName, labName, designation, division, mobileNo, email, password } = req.body;
 
-    console.log("registerUser body: ", req.body); // Sanitized for security
+
 
     if (
       [email, password].some((field) => field?.trim() === "")
@@ -120,14 +120,14 @@ const generateAccessAndRefreshToken = async (userId) => {
   try {
     const user = await User.findById(userId);
     const accessToken = user.generateAccessToken();
-    const refreshToken = user.generateRefreshToken();
+    const newRefreshToken = user.generateRefreshToken();
 
-    user.refreshToken = refreshToken;
+    user.refreshToken = newRefreshToken;
     await user.save({ validateBeforeSave: false });
-    return { accessToken, refreshToken };
+    return { accessToken, newRefreshToken };
   } catch (error) {
     throw new ApiErrors(
-      "Error in creating userSomething went wrong in generating Refresh and Access token",
+      "Something went wrong in generating Access and Refresh tokens",
       500
     );
   }
@@ -142,8 +142,7 @@ const generateAccessAndRefreshToken = async (userId) => {
  * @returns {Promise<void>} Sends a JSON response with user data and tokens (cookies)
  */
 const loginUser = asyncHandler(async (req, res, next) => {
-  console.log("loginUser called");
-  // console.log("body: ", req.body); // Sanitized for security
+
 
   const { email, password } = req.body;
   if (!email || !password) {
@@ -156,7 +155,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
   }
   const isPasswordValid = await user.isPasswordCorrect(password);
 
-  // console.log("before error- ", password); // Sanitized for security
+
   if (!isPasswordValid) {
     throw new ApiErrors("Invalid credentials", 401);
   }
@@ -182,7 +181,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
     // Let's enforce it for everyone for security, unless they are Superadmin in DB (but we haven't checked role thoroughly yet, just user existence)
     // If the user IS Superadmin, maybe let them through?
     // Check permissions instead of hardcoded role
-    const isSuperadmin = await hasPermission(user.role, 'System Configuration');
+    const isSuperadmin = await hasPermission(user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     if (!isSuperadmin) {
       if (!emailDomain || !allowedDomains.includes(emailDomain)) {
         throw new ApiErrors(`Login is restricted to the following domains: ${allowedDomains.join(', ')}`, 403);
@@ -204,7 +203,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
   }
 
   // Default to 'User' role on login if not Superadmin (System Configurator)
-  const isSuperadmin = await hasPermission(user.role, 'System Configuration');
+  const isSuperadmin = await hasPermission(user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
   if (!isSuperadmin && user.availableRoles.includes('User')) {
     user.role = 'User';
   }
@@ -215,7 +214,13 @@ const loginUser = asyncHandler(async (req, res, next) => {
     "-password -refreshToken"
   );
 
-  console.log("loginUser successful for user id: ", user);
+  const approvalConfig = await SystemConfig.findOne({ key: "APPROVAL_AUTHORITY_DESIGNATIONS" });
+  const allowedDesignations = approvalConfig?.value || [];
+
+  const userObj = loggedInUser.toObject();
+  userObj.hasApprovalAuthority = allowedDesignations.includes(loggedInUser.designation);
+
+
 
   const isProduction = process.env.NODE_ENV === "production";
   const options = {
@@ -234,7 +239,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
     .cookie("refreshToken", refreshToken, options)
     .json(
       new ApiResponse(200, "Login Successful", {
-        user: loggedInUser,
+        user: userObj,
         accessToken: accessToken,
         refToken: refreshToken, // Fixed typo from 'refToken: refreshAccessToken'
       })
@@ -250,12 +255,14 @@ const loginUser = asyncHandler(async (req, res, next) => {
  * @returns {Promise<void>} Sends a JSON response confirming logout
  */
 const logoutUser = asyncHandler(async (req, res, next) => {
-  console.log("Logout user id: ", req.user._id);
 
-  await User.findByIdAndUpdate(
+  const user = await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: { refreshToken: undefined },
+      $set: { 
+        refreshToken: undefined,
+        refreshTokenHash: undefined 
+      },
     },
     { new: true }
   );
@@ -300,8 +307,9 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
       throw new ApiErrors("Invalid refresh token", 401);
     }
 
-    if (incomingRefreshToken !== user.refreshToken) {
-      throw new ApiErrors("Refresh token not matching", 401);
+    // Compare hashes instead of plaintext tokens
+    if (!user.compareRefreshToken(incomingRefreshToken)) {
+      throw new ApiErrors("Refresh token invalid or revoked", 401);
     }
 
     const isProduction = process.env.NODE_ENV === "production";
@@ -322,12 +330,18 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
     }
 
     // Default to 'User' role on refresh if not Superadmin
-    const isSuperadmin = await hasPermission(user.role, 'System Configuration');
+    const isSuperadmin = await hasPermission(user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
     if (!isSuperadmin && user.availableRoles.includes('User')) {
       user.role = 'User';
     }
 
     await user.save({ validateBeforeSave: false });
+
+    const approvalConfig = await SystemConfig.findOne({ key: "APPROVAL_AUTHORITY_DESIGNATIONS" });
+    const allowedDesignations = approvalConfig?.value || [];
+
+    const userObj = user.toObject();
+    userObj.hasApprovalAuthority = allowedDesignations.includes(user.designation);
 
     return res
       .status(200)
@@ -337,7 +351,7 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
         new ApiResponse(
           200,
           "Access token refreshed successfully",
-          { accessToken, refreshToken: newRefreshToken, user }
+          { accessToken, refreshToken: newRefreshToken, user: userObj }
         )
       );
   } catch (error) {
@@ -379,7 +393,7 @@ const changePassword = asyncHandler(async (req, res) => {
 const verifyForgotPassToken = asyncHandler(async (req, res) => {
   const { userId, token } = req.body;
 
-  console.log("verifyForgotPassToken body-", req.body);
+
 
   if (!userId || !token) {
     return res
@@ -388,12 +402,10 @@ const verifyForgotPassToken = asyncHandler(async (req, res) => {
   try {
     const result = await verifyToken(token);
     if (!result.isValid) {
-      console.log("token is invalid xxx ");
       return res
         .json(new ApiResponse(400, "Invalid or expired token", { success: false }));
     }
 
-    console.log("!! token is valid !!");
 
     return res.status(200).json(new ApiResponse(200, `Token is valid`));
   } catch (error) {
@@ -418,11 +430,9 @@ const resetPassword = asyncHandler(async (req, res) => {
   try {
     const result = await verifyToken(token);
     if (!result.isValid) {
-      console.log("token found NOT valid in resetpassword");
       return res
         .json(new ApiResponse(400, "Invalid or expired token", { success: false }));
     }
-    console.log("token valid in resetpassword");
 
     // Update user password and reset token fields
     result.user.password = newPassword;// it is hashed before save in the middleware
@@ -476,9 +486,9 @@ const activateAccount = asyncHandler(async (req, res) => {
   }
 
   if (token.trim() !== (user.activationToken || "").trim()) {
-    console.error(`Token mismatch for user ${user._id}`);
-    console.log(`FULL Received Token: "${token}"`);
-    console.log(`FULL DB Token:       "${user.activationToken}"`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`Token mismatch for user ${user._id}`);
+    }
 
     if (user.isActivated) {
       return res.status(200).json(new ApiResponse(200, "Account is already activated. Please login.", { success: true, alreadyActivated: true }));
@@ -574,14 +584,14 @@ const bulkManualActivateUsers = asyncHandler(async (req, res) => {
  */
 const forgotPassword = asyncHandler(async (req, res, next) => {
   try {
-    //console.log(`Reached forgotPassword in backend`);
+
     // Forgot password logic here
     const { email } = req.body;
 
     // Find user by email
     const user = await User.findOne({ email });
 
-    console.log("user--->", user);
+
 
     if (!user) {
       await simulatedelay(5000); // Wait for 5 seconds
@@ -594,13 +604,11 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
     const resetPasswordToken = await user.generateResetPasswordToken();
     user.resetPasswordToken = resetPasswordToken;
 
-    console.log("generated resetPasswordToken is-", resetPasswordToken);
 
     await user.save({ validateBeforeSave: false });
 
     // Reset link (replace with your frontend URL)
     const resetUrl = `${getBaseUrl()}/reset-password?token=${encodeURIComponent(resetPasswordToken)}&userId=${user._id}`;
-    console.log("resetUrl is- ", resetUrl);
 
     sendEmail({
       to: email,
@@ -608,7 +616,6 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
       html: `<p>You requested a password reset. Click <a href="${resetUrl}">here</a> to reset your password.</p>`
     });
 
-    console.log(`Reset link sent on email- ${email}`);
 
     await simulatedelay(5000); // Wait for 5 seconds
 
@@ -625,12 +632,12 @@ const forgotPassword = asyncHandler(async (req, res, next) => {
 
 const verifyToken = async (token) => {
   try {
-    console.log("reached verifyToken with token->>>", token);
+    if (process.env.NODE_ENV !== 'production') {
+
+    }
     const decodedToken = jwt.verify(token, process.env.RESET_PASS_TOKEN_SECRET);
 
-    console.log("reached decodedToken with decodedToken->>>", decodedToken);
     const user = await User.findById(decodedToken?._id);
-    console.log("userfound-->", user);
 
     if (!user) {
       throw new ApiErrors("Invalid refresh token", 401);
@@ -648,7 +655,7 @@ const verifyToken = async (token) => {
 
     return { isValid, user };
   } catch (error) {
-    console.log("error msg====>", error.message);
+
     return { isValid: false, user: null };
   }
 };
@@ -682,7 +689,11 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     throw new ApiErrors("At least one field is required to update", 400);
   }
 
-  const user = req.user;
+  // Refetch user to get a Mongoose Document (req.user is a plain object from auth middleware)
+  const user = await User.findById(req.user._id);
+  if (!user) {
+    throw new ApiErrors("User not found", 404);
+  }
 
   const beforeState = user.toObject();
 
@@ -716,7 +727,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
   }
 
   // If sensitive fields changed and user is NOT Superadmin, set status to Pending
-  const isSuperadmin = await hasPermission(user.role, 'System Configuration');
+  const isSuperadmin = await hasPermission(user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
   if (hasSensitiveChanges && !isSuperadmin) {
     user.status = 'Pending';
     user.isSubmitted = true; // Automatically mark as submitted so it appears in approval lists
@@ -786,7 +797,7 @@ const updateUserProfile = asyncHandler(async (req, res) => {
         // Ideally I should update createNotification to accept data object. 
         // But let's stick to existing signature for now.
       }
-      console.log(`Sent profile update notifications to ${recipientIds.size} admins.`);
+
 
     } catch (notifyErr) {
       console.error("Error creating notifications:", notifyErr);
@@ -897,30 +908,38 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
  */
 const getAllUsers = asyncHandler(async (req, res) => {
   let filter = {};
-  const { search, page = 1, limit = 20 } = req.query;
+  const { search, page = 1, limit = 20, labBound } = req.query;
 
   // Base Access Control Logic
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES); // Superadmin level for ALL users
-  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE); // Delegated Admin level
+  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
   const isSuperadmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
 
-  if (canManageAllUsers) {
-    // If superadmin, see all. If not superadmin but has full manage permission (Inter Lab Sender equivalent), exclude Superadmin.
-    if (!isSuperadmin) {
-      filter = { role: { $ne: SUPERADMIN_ROLE_NAME } };
-    } else {
-      filter = {};
-    }
-  } else if (canManageLabUsers) {
+  // If labBound is requested, restrict strictly to the requester's lab
+  if (labBound === 'true') {
     filter = {
-      role: { $ne: SUPERADMIN_ROLE_NAME },
-      labName: req.user.labName || ""
+      labName: req.user.labName || "",
+      _id: { $ne: req.user._id }
     };
-    if (!req.user.labName) {
-      return res.status(200).json(new ApiResponse(200, "Users fetched successfully", { users: [], total: 0 }));
-    }
   } else {
-    filter = { status: 'Approved' };
+    // Standard access control logic...
+    if (canManageAllUsers) {
+      const rolesWithSystemConfig = await getRolesWithPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+      if (!isSuperadmin) {
+        filter = { role: { $nin: rolesWithSystemConfig } };
+      } else {
+        filter = {};
+      }
+    } else if (canManageLabUsers) {
+      const rolesWithSystemConfig = await getRolesWithPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+      const rolesWithManageAll = await getRolesWithPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+      filter = {
+        role: { $nin: [...new Set([...rolesWithSystemConfig, ...rolesWithManageAll])] },
+        labName: req.user.labName || ""
+      };
+    } else {
+      filter = { status: 'Approved' };
+    }
   }
 
   // Search Logic
@@ -932,6 +951,37 @@ const getAllUsers = asyncHandler(async (req, res) => {
       { designation: searchRegex },
       { labName: searchRegex }
     ];
+  }
+
+  // Explicit Filters (Status, Lab, Roles, Designation)
+  const { status, labName, roles, designation } = req.query;
+
+  if (status) {
+    const statuses = status.split(',').filter(Boolean);
+    if (statuses.length > 0) {
+      filter.status = { $in: statuses };
+    }
+  }
+
+  if (labName) {
+    const labs = labName.split(',').filter(Boolean);
+    if (labs.length > 0) {
+      filter.labName = { $in: labs };
+    }
+  }
+
+  if (roles) {
+    const roleList = roles.split(',').filter(Boolean);
+    if (roleList.length > 0) {
+      filter.availableRoles = { $in: roleList };
+    }
+  }
+
+  if (designation) {
+    const designations = designation.split(',').filter(Boolean);
+    if (designations.length > 0) {
+      filter.designation = { $in: designations };
+    }
   }
 
   // Pagination Logic
@@ -982,38 +1032,42 @@ const updateUserStatus = asyncHandler(async (req, res) => {
   }
 
   // Permission Check
-  const isSuperadmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION); // Or check specific superadmin permission
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
-  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
 
-  if (isSuperadmin) {
-    // Superadmin can manage anyone except self (for status update)
+  const targetIsSuper = await hasPermission(userToUpdate.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const targetCanManageAll = await hasPermission(userToUpdate.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+
+  if (requesterIsSuper) {
+    // System Configurator can manage anyone except self
     if (userToUpdate._id.toString() === req.user._id.toString()) {
       throw new ApiErrors("Forbidden: You cannot manage your own account status", 403);
     }
-  } else if (canManageAllUsers) { // Inter Lab sender equivalent
-    // Inter Lab sender can manage anyone except Superadmin and others with Manage All Users permission
-    const targetIsSuperadmin = await hasPermission(userToUpdate.role, "System Configuration");
-    const targetCanManageAll = await hasPermission(userToUpdate.role, "Manage Users(all labs)");
-
-    if (targetIsSuperadmin || targetCanManageAll) {
-      throw new ApiErrors("Forbidden: You cannot manage other Administrators or Superadmin accounts", 403);
+  } else if (requesterCanManageAll) {
+    // Managers of ALL labs cannot manage System Configurators or self
+    if (targetIsSuper) {
+      throw new ApiErrors("Forbidden: You cannot manage System Configurator accounts", 403);
     }
-    // Restriction: Cannot manage self
+    // Cannot manage other Managers of ALL labs (peers)
+    if (targetCanManageAll && userToUpdate._id.toString() !== req.user._id.toString()) {
+      // Wait, if target has Manage All Users permission too, they are peers.
+      // Let's decide: Peers can't manage peers? Or only Super can manage peers?
+      // Typically only Super should manage Admin accounts.
+      throw new ApiErrors("Forbidden: You cannot manage other Administrator accounts", 403);
+    }
     if (userToUpdate._id.toString() === req.user._id.toString()) {
       throw new ApiErrors("Forbidden: You cannot manage your own account status", 403);
     }
-  } else if (canManageLabUsers) {
-    // Check if target user belongs to same lab
+  } else if (requesterCanManageOwn) {
+    // Managers of OWN lab
     if (!userToUpdate.labName || userToUpdate.labName !== req.user.labName) {
       throw new ApiErrors("Forbidden: You can only manage users from your own lab", 403);
     }
-    // Restriction: Cannot manage Superadmin
-    const targetIsSuperadmin = await hasPermission(userToUpdate.role, "System Configuration");
-    if (targetIsSuperadmin) {
-      throw new ApiErrors("Forbidden: You cannot manage Superadmin accounts", 403);
+    // Cannot manage System Configurators or Managers of ALL labs
+    if (targetIsSuper || targetCanManageAll) {
+      throw new ApiErrors("Forbidden: You cannot manage Administrator or System Configurator accounts", 403);
     }
-    // Restriction: Cannot manage self
     if (userToUpdate._id.toString() === req.user._id.toString()) {
       throw new ApiErrors("Forbidden: You cannot manage your own account status", 403);
     }
@@ -1062,18 +1116,51 @@ const createAdminUser = asyncHandler(async (req, res, next) => {
     throw new ApiErrors("Full Name, Email and Password are required", 400);
   }
 
-  // Permission Check: Inter Lab sender can only create Delegated Admin
-  // Superadmin can create Inter Lab sender or Delegated Admin
-  const targetRole = role || 'Delegated Admin';
-  const isSuperadmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  // Permission Check
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
 
-  // If NOT superadmin but can manage all users (Inter Lab Sender), restrict to creating Delegated Admin only
-  if (!isSuperadmin && canManageAllUsers && targetRole !== 'Delegated Admin') {
-    throw new ApiErrors("Forbidden: You can only create Delegated Admin users", 403);
+  // Dynamic Role Validation (Get all roles from FEATURE_PERMISSIONS config)
+  const config = await SystemConfig.findOne({ key: "FEATURE_PERMISSIONS" });
+  if (!config || !Array.isArray(config.value)) {
+    throw new ApiErrors("Server Error: Feature permissions not configured", 500);
   }
 
-  if (!['Inter Lab sender', 'Delegated Admin'].includes(targetRole)) {
+  const allPossibleRoles = Array.from(new Set(config.value.flatMap(p => p.roles)));
+  const targetRole = role || allPossibleRoles.find(r => r.includes('Delegated')) || allPossibleRoles[0];
+
+  if (requesterIsSuper) {
+    // Super can create any role (including Superadmin)
+  } else if (requesterCanManageAll) {
+    // Can only create roles that DO NOT have SYSTEM_CONFIGURATION or MANAGE_ALL permissions
+    const restrictedRoles = Array.from(new Set(
+      config.value
+        .filter(p => p.feature === FeatureCodes.FEATURE_SYSTEM_CONFIGURATION || p.feature === FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)
+        .flatMap(p => p.roles)
+    ));
+    if (restrictedRoles.includes(targetRole)) {
+      throw new ApiErrors("Forbidden: You cannot create administrative accounts with higher privileges than yours", 403);
+    }
+  } else if (requesterCanManageOwn) {
+    // Managers of OWN lab can only create roles that DO NOT have SYSTEM_CONFIGURATION or MANAGE_ALL permissions
+    // And must specify their own labName
+    if (labName !== req.user.labName) {
+      throw new ApiErrors("Forbidden: You can only create users for your own lab", 403);
+    }
+    const restrictedRoles = Array.from(new Set(
+      config.value
+        .filter(p => p.feature === FeatureCodes.FEATURE_SYSTEM_CONFIGURATION || p.feature === FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)
+        .flatMap(p => p.roles)
+    ));
+    if (restrictedRoles.includes(targetRole)) {
+      throw new ApiErrors("Forbidden: You cannot create administrative accounts", 403);
+    }
+  } else {
+    throw new ApiErrors("Forbidden: Access denied", 403);
+  }
+
+  if (!allPossibleRoles.includes(targetRole)) {
     throw new ApiErrors("Invalid role selected", 400);
   }
 
@@ -1129,41 +1216,47 @@ const bulkUpdateUserStatus = asyncHandler(async (req, res, next) => {
   // Permission Check
   const usersToCheck = await User.find({ _id: { $in: userIds } });
 
-  const isSuperadmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
-  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
 
-  if (isSuperadmin) {
-    // Superadmin check: Cannot target self
+  if (requesterIsSuper) {
+    // System Configurator check: Cannot target self
     if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
       throw new ApiErrors("Forbidden: You cannot perform bulk actions on yourself", 403);
     }
-  } else if (canManageAllUsers) {
-    // Inter Lab sender check: Cannot target Superadmin, other Inter Lab senders, or self
-    const canTargetManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)));
-    const isTargetSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION)));
+  } else if (requesterCanManageAll) {
+    // Manager of ALL labs check: Cannot target System Configurators, other Managers of ALL labs, or self
+    const targetIsSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION)));
+    const targetCanManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)));
 
-    // Check if ANY target is protected
     const isProtected = usersToCheck.some((u, index) => {
-      return isTargetSuper[index] || (canTargetManageAll[index] && u._id.toString() !== req.user._id.toString());
+      // Protect Superadmins AND other Admins (peers)
+      return targetIsSuper[index] || (targetCanManageAll[index] && u._id.toString() !== req.user._id.toString());
     });
 
     if (isProtected) {
-      throw new ApiErrors("Forbidden: You cannot perform actions on other Administrators or Superadmin accounts", 403);
+      throw new ApiErrors("Forbidden: You cannot perform actions on other Administrator or System Configurator accounts", 403);
     }
     if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
       throw new ApiErrors("Forbidden: You cannot perform bulk actions on yourself", 403);
     }
-  } else if (canManageLabUsers) {
+  } else if (requesterCanManageOwn) {
+    // Manager of OWN lab check
     const allInLab = usersToCheck.every(u => u.labName === req.user.labName);
     if (!allInLab) {
       throw new ApiErrors("Forbidden: You can only bulk manage users from your own lab", 403);
     }
 
-    // Check for Superadmin role
-    const isTargetSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, "System Configuration")));
-    if (isTargetSuper.some(Boolean)) {
-      throw new ApiErrors("Forbidden: You cannot perform bulk actions on Superadmin accounts", 403);
+    // Check for System Configurator or Administrator role
+    const targetIsSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION)));
+    const targetCanManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)));
+
+    if (targetIsSuper.some(Boolean) || targetCanManageAll.some(Boolean)) {
+      throw new ApiErrors("Forbidden: You cannot perform bulk actions on Administrator or System Configurator accounts", 403);
+    }
+    if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
+      throw new ApiErrors("Forbidden: You cannot perform bulk actions on yourself", 403);
     }
   } else {
     throw new ApiErrors("Forbidden: Access denied", 403);
@@ -1198,40 +1291,47 @@ const bulkDeleteUsers = asyncHandler(async (req, res, next) => {
   // Permission Check
   const usersToCheck = await User.find({ _id: { $in: userIds } });
 
-  const isSuperadmin = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
-  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
 
-  if (isSuperadmin) {
-    // Superadmin check: Cannot target self
+  if (requesterIsSuper) {
+    // System Configurator check: Cannot target self
     if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
       throw new ApiErrors("Forbidden: You cannot delete yourself", 403);
     }
-  } else if (canManageAllUsers) {
-    // Inter Lab sender check: Cannot target Superadmin, other Inter Lab senders, or self
-    const canTargetManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, "Manage Users(all labs)")));
-    const isTargetSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, "System Configuration")));
+  } else if (requesterCanManageAll) {
+    // Manager of ALL labs check: Cannot target System Configurators, other Managers of ALL labs, or self
+    const targetIsSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION)));
+    const targetCanManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)));
 
     const isProtected = usersToCheck.some((u, index) => {
-      return isTargetSuper[index] || (canTargetManageAll[index] && u._id.toString() !== req.user._id.toString());
+      // Protect Superadmins AND other Admins (peers)
+      return targetIsSuper[index] || (targetCanManageAll[index] && u._id.toString() !== req.user._id.toString());
     });
 
     if (isProtected) {
-      throw new ApiErrors("Forbidden: You cannot delete other Administrators or Superadmin accounts", 403);
+      throw new ApiErrors("Forbidden: You cannot delete other Administrator or System Configurator accounts", 403);
     }
     if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
       throw new ApiErrors("Forbidden: You cannot delete yourself", 403);
     }
-  } else if (canManageLabUsers) {
+  } else if (requesterCanManageOwn) {
+    // Manager of OWN lab check
     const allInLab = usersToCheck.every(u => u.labName === req.user.labName);
     if (!allInLab) {
       throw new ApiErrors("Forbidden: You can only delete users from your own lab", 403);
     }
 
-    // Check for Superadmin role
-    const isTargetSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, "System Configuration")));
-    if (isTargetSuper.some(Boolean)) {
-      throw new ApiErrors("Forbidden: You cannot delete Superadmin accounts", 403);
+    // Check for System Configurator or Administrator role
+    const targetIsSuper = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION)));
+    const targetCanManageAll = await Promise.all(usersToCheck.map(u => hasPermission(u.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)));
+
+    if (targetIsSuper.some(Boolean) || targetCanManageAll.some(Boolean)) {
+      throw new ApiErrors("Forbidden: You cannot delete Administrator or System Configurator accounts", 403);
+    }
+    if (usersToCheck.some(u => u._id.toString() === req.user._id.toString())) {
+      throw new ApiErrors("Forbidden: You cannot delete yourself", 403);
     }
   } else {
     throw new ApiErrors("Forbidden: Access denied", 403);
@@ -1287,30 +1387,42 @@ const manualActivateUser = asyncHandler(async (req, res) => {
     throw new ApiErrors("User not found", 404);
   }
 
-  // Permission Check
-  const canManageAllUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
-  const canManageLabUsers = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
 
-  if (canManageLabUsers && !canManageAllUsers) { // Delegated Admin level
+  const targetIsSuper = await hasPermission(userToActivate.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const targetCanManageAll = await hasPermission(userToActivate.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+
+  if (requesterIsSuper) {
+    // System Configurator can manage anyone except self
+    if (userToActivate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot activate your own account", 403);
+    }
+  } else if (requesterCanManageAll) {
+    // Manager of ALL labs check: Cannot target System Configurators, other Managers of ALL labs, or self
+    if (targetIsSuper) {
+      throw new ApiErrors("Forbidden: You cannot activate System Configurator accounts", 403);
+    }
+    if (targetCanManageAll && userToActivate._id.toString() !== req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot activate other Administrator accounts", 403);
+    }
+    if (userToActivate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot activate your own account", 403);
+    }
+  } else if (requesterCanManageOwn) {
+    // Manager of OWN lab check
     if (userToActivate.labName !== req.user.labName) {
       throw new ApiErrors("Forbidden: You can only activate users from your own lab", 403);
     }
-    const targetIsSuperadmin = await hasPermission(userToActivate.role, "System Configuration");
-    if (targetIsSuperadmin) {
-      throw new ApiErrors("Forbidden: You cannot activate Superadmin accounts", 403);
+    if (targetIsSuper || targetCanManageAll) {
+      throw new ApiErrors("Forbidden: You cannot activate Administrator or System Configurator accounts", 403);
     }
-  } else if (canManageAllUsers) { // Inter Lab sender or Superadmin
-    // Superadmin is checked implicitly by permissions if we configured it right, 
-    // but here we want to prevent Inter Lab sender from activating supers/peers even if they have "Manage Users"
-    // Superadmin is checked implicitly by permissions if we configured it right, 
-    // but here we want to prevent Inter Lab sender from activating supers/peers even if they have "Manage Users"
-    const isSuperadmin = await hasPermission(req.user.role, "System Configuration");
-    const targetIsSuperadmin = await hasPermission(userToActivate.role, "System Configuration");
-    const targetCanManageAll = await hasPermission(userToActivate.role, "Manage Users(all labs)");
-
-    if (!isSuperadmin && (targetIsSuperadmin || targetCanManageAll)) {
-      throw new ApiErrors("Forbidden: You cannot activate other Administrators/Superadmin accounts", 403);
+    if (userToActivate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot activate your own account", 403);
     }
+  } else {
+    throw new ApiErrors("Forbidden: Access denied", 403);
   }
 
   userToActivate.isActivated = true;
@@ -1415,17 +1527,8 @@ const updateUserAvailableRoles = asyncHandler(async (req, res) => {
     throw new ApiErrors("Roles must be an array", 400);
   }
 
-  // Ensure at least one role is present
   if (roles.length === 0) {
     throw new ApiErrors("At least one role is required", 400);
-  }
-
-  // Validate roles against available options (excluding Superadmin)
-  const allowedRoles = ["User", "Inter Lab sender", "Delegated Admin"];
-  const invalidRoles = roles.filter(role => !allowedRoles.includes(role));
-
-  if (invalidRoles.length > 0) {
-    throw new ApiErrors(`Invalid roles provided: ${invalidRoles.join(", ")}`, 400);
   }
 
   const userToUpdate = await User.findById(userId);
@@ -1433,24 +1536,173 @@ const updateUserAvailableRoles = asyncHandler(async (req, res) => {
     throw new ApiErrors("User not found", 404);
   }
 
-  // Cannot update self
-  if (userToUpdate._id.toString() === req.user._id.toString()) {
-    throw new ApiErrors("Superadmins cannot update their own roles via this endpoint", 400);
+  // Hierarchical Permission Check
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+
+  const targetIsSuper = await hasPermission(userToUpdate.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const targetCanManageAll = await hasPermission(userToUpdate.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+
+  if (requesterIsSuper) {
+    // Superadmin (System Configurator) can manage anyone except self
+    if (userToUpdate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("System Configurators cannot update their own roles via this endpoint", 400);
+    }
+  } else if (requesterCanManageAll) {
+    // Managers of ALL labs cannot manage System Configurators or self
+    if (targetIsSuper) {
+      throw new ApiErrors("Forbidden: You cannot update System Configurator accounts", 403);
+    }
+    if (userToUpdate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot update your own roles", 403);
+    }
+  } else if (requesterCanManageOwn) {
+    // Managers of OWN lab
+    if (userToUpdate.labName !== req.user.labName) {
+      throw new ApiErrors("Forbidden: You can only update users from your own lab", 403);
+    }
+    if (targetIsSuper || targetCanManageAll) {
+      throw new ApiErrors("Forbidden: You cannot update Administrator or System Configurator accounts", 403);
+    }
+    if (userToUpdate._id.toString() === req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot update your own roles", 403);
+    }
+  } else {
+    throw new ApiErrors("Forbidden: Access denied", 403);
   }
 
-  // Update available roles
-  userToUpdate.availableRoles = roles;
+  // Dynamic Role Validation (Get all roles from FEATURE_PERMISSIONS config)
+  const config = await SystemConfig.findOne({ key: "FEATURE_PERMISSIONS" });
+  if (!config || !Array.isArray(config.value)) {
+    throw new ApiErrors("Server Error: Feature permissions not configured", 500);
+  }
 
-  // If the current role is not in the new available roles, switch to the first available role
+  const allPossibleRoles = Array.from(new Set(config.value.flatMap(p => p.roles)));
+
+  // Filter out the Superadmin/Admin roles from standard assignment if requester is not Super
+  let assignableRoles = allPossibleRoles;
+  if (!requesterIsSuper) {
+    // If not super, prevent assigning roles that have FEATURE_SYSTEM_CONFIGURATION or FEATURE_MANAGE_USERS_ALL_OFFICES
+    const restrictedRoles = Array.from(new Set(
+      config.value
+        .filter(p => p.feature === FeatureCodes.FEATURE_SYSTEM_CONFIGURATION || p.feature === FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)
+        .flatMap(p => p.roles)
+    ));
+    assignableRoles = allPossibleRoles.filter(role => !restrictedRoles.includes(role));
+
+    // Safety check for target roles
+    const invalidRoles = roles.filter(role => !assignableRoles.includes(role));
+    if (invalidRoles.length > 0) {
+      throw new ApiErrors(`Forbidden: You cannot assign these administrative roles: ${invalidRoles.join(", ")}`, 403);
+    }
+  } else {
+    // Super can assign anything in allPossibleRoles (which includes Superadmin itself)
+    const invalidRoles = roles.filter(role => !allPossibleRoles.includes(role));
+    if (invalidRoles.length > 0) {
+      throw new ApiErrors(`Invalid roles provided: ${invalidRoles.join(", ")}`, 400);
+    }
+  }
+
+  userToUpdate.availableRoles = roles;
   if (!roles.includes(userToUpdate.role)) {
     userToUpdate.role = roles[0];
   }
 
   await userToUpdate.save();
 
+  await logActivity(req, "USER_ROLES_UPDATE", "User", userToUpdate._id, {
+    after: { availableRoles: roles, activeRole: userToUpdate.role }
+  });
+
   return res.status(200).json(
     new ApiResponse(200, "User roles updated successfully", userToUpdate)
   );
+});
+
+/**
+ * Updates any user's profile information by ID (Admin only).
+ * 
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @returns {Promise<void>} Sends a JSON response with update status
+ */
+const updateUserProfileById = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { fullName, labName, designation, division, mobileNo, settings } = req.body;
+
+  if (fullName === undefined && labName === undefined && designation === undefined && division === undefined && mobileNo === undefined && settings === undefined) {
+    throw new ApiErrors("At least one field is required to update", 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiErrors("User not found", 404);
+  }
+
+  // Permission Check
+  const requesterIsSuper = await hasPermission(req.user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const requesterCanManageAll = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+  const requesterCanManageOwn = await hasPermission(req.user.role, FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+
+  const targetIsSuper = await hasPermission(user.role, FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+  const targetCanManageAll = await hasPermission(user.role, FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+
+  if (requesterIsSuper) {
+    // System Configurator can manage anyone - OK
+  } else if (requesterCanManageAll) {
+    // Cannot manage System Configurators
+    if (targetIsSuper) {
+      throw new ApiErrors("Forbidden: You cannot update System Configurator accounts", 403);
+    }
+    // Cannot manage other Managers of ALL labs if they are not self? (Usually peers are protected)
+    if (targetCanManageAll && user._id.toString() !== req.user._id.toString()) {
+      throw new ApiErrors("Forbidden: You cannot update other Administrator accounts", 403);
+    }
+  } else if (requesterCanManageOwn) {
+    // Manager of OWN lab
+    if (user.labName !== req.user.labName) {
+      throw new ApiErrors("Forbidden: You can only update users from your own lab", 403);
+    }
+    if (targetIsSuper || targetCanManageAll) {
+      throw new ApiErrors("Forbidden: You cannot update Administrator or System Configurator accounts", 403);
+    }
+  } else {
+    throw new ApiErrors("Forbidden: Access denied", 403);
+  }
+
+  const beforeState = user.toObject();
+
+  if (fullName) user.fullName = fullName;
+
+  if (labName) user.labName = labName.toUpperCase();
+
+  if (designation) user.designation = designation;
+
+  if (division) user.division = division;
+
+  if (mobileNo !== undefined) {
+    user.mobileNo = mobileNo;
+  }
+
+  if (settings) {
+    user.settings = { ...user.settings, ...settings };
+  }
+
+  // Note: We do NOT force status to Pending because an Admin is performing the update.
+  // We assume the Admin has verified the changes.
+
+  await user.save();
+
+  await logActivity(req, "USER_PROFILE_UPDATE_BY_ADMIN", "User", user._id, {
+    performer: req.user._id,
+    before: JSON.parse(JSON.stringify(beforeState)),
+    after: JSON.parse(JSON.stringify(user.toObject()))
+  });
+
+  const updatedUser = await User.findById(user._id).select("-password -refreshToken");
+
+  return res.status(200).json(new ApiResponse(200, "User profile updated successfully", updatedUser));
 });
 
 export {
@@ -1477,14 +1729,16 @@ export {
   bulkManualActivateUsers,
   switchRole,
   updateUserAvailableRoles,
-  resendActivationEmail
+  resendActivationEmail,
+  migrateLabNames,
+  updateUserProfileById
 };
 
 /**
  * Maintenance script to normalize lab names by adding 'CSIR-' prefix if missing.
  * This is a one-time migration that affects Users, References, and LocalReferences.
  */
-export const migrateLabNames = asyncHandler(async (req, res) => {
+const migrateLabNames = asyncHandler(async (req, res) => {
   // 1. Identify users whose labName needs normalization
   const allUsers = await User.find({ labName: { $exists: true, $ne: "" } });
 

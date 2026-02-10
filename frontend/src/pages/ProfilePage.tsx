@@ -14,7 +14,7 @@ import { Mail, Shield, Camera, Save, X, Building2, UserCircle, Briefcase, Bell }
 import ChangePasswordModal from '../components/ui/ChangePasswordModal';
 import Button from '../components/ui/Button';
 import { useState, useEffect, useMemo } from 'react';
-import { updateProfile, updateAvatar, getUserById } from '../services/user.api';
+import { updateProfile, updateAvatar, getUserById, updateUserProfileById } from '../services/user.api';
 import { getLabs, getDesignations, getDivisions } from '../services/settings.api';
 import DropDownWithSearch from '../components/ui/DropDownWithSearch';
 
@@ -162,7 +162,15 @@ const ProfilePage = () => {
                 payload.isSubmitted = true;
             }
 
-            const response = await updateProfile(payload);
+            let response;
+            if (isOwnProfile) {
+                response = await updateProfile(payload);
+            } else {
+                if (!userId) {
+                    throw new Error("User ID is missing");
+                }
+                response = await updateUserProfileById(userId, payload);
+            }
             if (response.success) {
                 setSuccessMessage(response.message);
                 setError(null);
@@ -357,6 +365,13 @@ const ProfilePage = () => {
                                     <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-600 border border-gray-200 flex items-center gap-1">
                                         <Shield className="w-3 h-3" />
                                         {user.role || "User"}
+                                    </span>
+                                )}
+                                {/* Approval Authority Badge */}
+                                {(user.hasApprovalAuthority || /director|dg|head/i.test(user.designation || '')) && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1 uppercase tracking-wider shadow-sm">
+                                        <Shield className="w-3 h-3" />
+                                        Approval Authority
                                     </span>
                                 )}
                             </div>

@@ -1,5 +1,5 @@
 /**
- * @fileoverview MailerSend Email Provider - Implementation for sending emails via MailerSend API
+ * @fileoverview Source File - Part of the application codebase
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -48,7 +48,7 @@ export const sendEmail = async ({ to, subject, html }) => {
             },
         });
 
-        console.log(`Email sent (MailerSend): ${response.headers['x-message-id'] || 'no-id'}`);
+
         return { success: true, messageId: response.headers['x-message-id'] };
     } catch (error) {
         console.error("Error sending email (MailerSend):", error.response?.data || error.message);

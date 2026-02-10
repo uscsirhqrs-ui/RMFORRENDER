@@ -20,12 +20,12 @@ export const logActivity = async (req, action, resource, resourceId, changes = n
         // Check if logging is enabled
         const config = await SystemConfig.findOne({ key: "IS_AUDIT_LOGGING_ENABLED" });
         if (config && config.value === false) {
-            console.log("DEBUG: Audit logging is currently PAUSED. Skipping log creation.");
+
             return;
         }
 
         const userId = manualUserId || req.user?._id;
-        console.log(`DEBUG: logActivity attempt - Action: ${action}, Resource: ${resource}, User: ${userId}`);
+
 
         if (!userId) {
             console.warn("DEBUG: No userId provided or found in request. Skipping log.");
@@ -53,10 +53,10 @@ export const logActivity = async (req, action, resource, resourceId, changes = n
             },
         };
 
-        console.log("DEBUG: Creating AuditLog with data:", JSON.stringify(logData, null, 2));
+
 
         const logEntry = await AuditLog.create(logData);
-        console.log("DEBUG: Audit log entry created successfully. ID:", logEntry._id);
+
     } catch (error) {
         console.error("DEBUG: CRITICAL ERROR in logActivity:", error);
     }

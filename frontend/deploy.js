@@ -31,9 +31,7 @@ async function copyDir(src, dest) {
 }
 
 async function deploy() {
-    console.log(`Starting deployment...`);
-    console.log(`Source: ${sourceDir}`);
-    console.log(`Target: ${targetDir}`);
+
 
     if (!fs.existsSync(sourceDir)) {
         console.error('Error: dist directory not found. Run "npm run build" first.');
@@ -42,7 +40,7 @@ async function deploy() {
 
     // Clean target directory (optional, but good practice to remove old hashes)
     if (fs.existsSync(targetDir)) {
-        console.log('Cleaning target directory...');
+
         try {
             await fs.promises.rm(targetDir, { recursive: true, force: true });
         } catch (err) {
@@ -50,9 +48,7 @@ async function deploy() {
         }
     }
 
-    console.log('Copying build files...');
     await copyDir(sourceDir, targetDir);
-    console.log('Deployment successful! Files copied to backend/public.');
 }
 
 deploy();

@@ -1,5 +1,5 @@
 /**
- * @fileoverview API Routes - Archiving and retention management
+ * @fileoverview API Routes - Defines endpoint routes and middleware
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

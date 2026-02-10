@@ -25,7 +25,7 @@ function StatusCard({ info, onClick, isActive, loading, additionalInfo }: Status
             onClick={onClick}
             role="button"
             tabIndex={0}
-            className={`cards-gradient p-4 flex rounded-xl shadow-sm flex-col bg-white transition-all duration-300 border-2 ${isActive
+            className={` p-4 flex rounded-xl shadow-sm flex-col bg-white transition-all duration-300 border-2 ${isActive
                 ? 'border-indigo-500 shadow-indigo-100 bg-indigo-50/30 scale-[1.02]'
                 : 'border-transparent hover:border-gray-200 hover:bg-gray-50/50'
                 }`}

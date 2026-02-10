@@ -9,6 +9,7 @@
  */
 
 import Header from "./components/header/Header";
+import { DatabaseBanner } from "./components/ui/DatabaseBanner";
 import ProtectedRoute from "./components/ProtectedRoute";
 import GlobalReferencesPage from "./pages/references/GlobalReferencesPage";
 import LocalReferencesPage from "./pages/references/LocalReferencesPage";
@@ -32,7 +33,8 @@ import ActivationPage from "./pages/ActivationPage";
 import HelpPage from "./pages/HelpPage";
 import AuditTrailsPage from "./pages/AuditTrailsPage";
 import CreateFormPage from "./pages/data-collection/CreateFormPage";
-import SharedFormsPage from "./pages/data-collection/SharedFormsPage";
+import SharedWithMePage from "./pages/data-collection/SharedWithMePage";
+import SharedByMePage from "./pages/data-collection/SharedByMePage";
 import SavedTemplatesPage from "./pages/data-collection/SavedTemplatesPage";
 import LoginAnnouncement from "./components/LoginAnnouncement";
 
@@ -51,6 +53,7 @@ function App() {
       <MessageBoxProvider>
         <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-300 w-full overflow-x-hidden relative">
           <Header />
+          <DatabaseBanner />
           <LoginAnnouncement />
           <main id="maincontent" className="w-full grow" >
             {/* Main content goes here and routers etc*/}
@@ -80,10 +83,11 @@ function App() {
               <Route path="/audit-trails" element={<ProtectedRoute allowedRoles={[SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_AUDIT_TRAILS]}><AuditTrailsPage /></ProtectedRoute>} />
               <Route path="/system-settings" element={<ProtectedRoute allowedRoles={[SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_SYSTEM_CONFIGURATION]}><SystemSettingsPage /></ProtectedRoute>} />
               <Route path="/feature-permissions" element={<ProtectedRoute allowedRoles={[SUPERADMIN_ROLE_NAME]} requiredPermissions={[FeatureCodes.FEATURE_SYSTEM_CONFIGURATION]}><FeaturePermissionsPage /></ProtectedRoute>} />
-              <Route path="/data-collection" element={<Navigate to="/data-collection/shared" replace />} />
-              <Route path="/data-collection/create" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT]}><CreateFormPage /></ProtectedRoute>} />
-              <Route path="/data-collection/shared" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT]}><SharedFormsPage /></ProtectedRoute>} />
-              <Route path="/data-collection/saved" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT]}><SavedTemplatesPage /></ProtectedRoute>} />
+              <Route path="/data-collection" element={<Navigate to="/data-collection/shared-with-me" replace />} />
+              <Route path="/data-collection/create" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB, FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB]}><CreateFormPage /></ProtectedRoute>} />
+              <Route path="/data-collection/shared-with-me" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB, FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB]}><SharedWithMePage /></ProtectedRoute>} />
+              <Route path="/data-collection/distributed-by-me" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB, FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB]}><SharedByMePage /></ProtectedRoute>} />
+              <Route path="/data-collection/saved" element={<ProtectedRoute requiredPermissions={[FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB, FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB]}><SavedTemplatesPage /></ProtectedRoute>} />
               <Route path="/help" element={<ProtectedRoute><HelpPage /></ProtectedRoute>} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/auth" element={<AuthPage />} />

@@ -24,7 +24,7 @@ router.use(authorizeRoles(SUPERADMIN_ROLE_NAME));
 router.route("/").get(asyncHandler(async (req, res) => {
     const { page = 1, limit = 20, action, user, resource, startDate, endDate } = req.query;
 
-    console.log("DEBUG: Audit logs requested with params:", req.query);
+
     const query = {};
     if (action) query.action = action;
     if (user) query.user = user;
@@ -34,7 +34,7 @@ router.route("/").get(asyncHandler(async (req, res) => {
         if (startDate) query.createdAt.$gte = new Date(startDate);
         if (endDate) query.createdAt.$lte = new Date(endDate);
     }
-    console.log("DEBUG: Generated Mongo Query:", JSON.stringify(query));
+
 
     const logs = await AuditLog.find(query)
         .populate("user", "fullName email labName")

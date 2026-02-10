@@ -27,7 +27,7 @@ const InputField: React.FC<InputFieldProps> = ({ id, label, icon, className = ""
       <input
         id={id}
         {...props}
-        className={`w-full pl-11 pr-4 py-2 border border-gray-100 rounded-xl shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 transition-all duration-200 text-sm placeholder:text-gray-300 text-gray-700 ${className}`}
+        className={`w-full pl-11 pr-4 py-2 border border-gray-100 rounded-xl shadow-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500/20 transition-all duration-200 text-sm placeholder:text-gray-300 text-gray-700 disabled:bg-gray-50/50 disabled:cursor-not-allowed disabled:text-gray-400 ${className}`}
       />
     </div>
   </div>

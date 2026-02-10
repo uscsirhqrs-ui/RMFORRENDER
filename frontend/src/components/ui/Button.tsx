@@ -19,7 +19,7 @@ interface ButtonProps {
   loading?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
-  onClick?: () => void;
+  onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   className?: string;
@@ -77,7 +77,8 @@ function Button({
 
       {/* Loading spinner */}
       {loading && (
-        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+        <div className={`w-5 h-5 border-2 rounded-full animate-spin ${variant === 'secondary' ? 'border-indigo-600/30 border-t-indigo-600' : 'border-white/30 border-t-white'
+          }`}></div>
       )}
 
       {/* Icon Left */}

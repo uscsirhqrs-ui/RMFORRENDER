@@ -13,6 +13,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
+import rateLimit from "express-rate-limit";
 import "./jobs/retention.job.js"; // Initialize cleanup jobs
 
 console.log("----------------------------------------");
@@ -28,81 +29,117 @@ import auditRoutes from "./routes/audit.routes.js";
 import parichayRoutes from "./routes/parichay.routes.js";
 import parichayMockRoutes from "./routes/parichay.mock.routes.js";
 // import settingsRoutes from "./routes/settings.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 import { slowDown } from "express-slow-down";
 import helmet from "helmet";
 
 // Import error handling here
 import ApiErrors from "./utils/ApiErrors.js";
+import { sanitizeNoSQL } from "./middlewares/nosql-protection.middleware.js";
 
 
 const app = express();
 app.set('trust proxy', 1);
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
-      "img-src": ["'self'", "data:", "res.cloudinary.com"],
-      "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
-      "style-src": ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
-      "script-src": ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      "connect-src": ["'self'"],
-    },
-  },
-  crossOriginResourcePolicy: { policy: "cross-origin" }
-}));
-
-const limiter = slowDown({
-  windowMs: 15 * 60 * 1000, // 5 minutes
-  delayAfter: 1000, // allow 10 requests per `windowMs` (5 minutes) without slowing them down
-  delayMs: (hits) => hits * 200, // add 200 ms of delay to every request after the 10th
-  maxDelayMs: 5000, // max global delay of 5 seconds
-});
-
-app.use(limiter);
-
-
+// Move CORS to the top to ensure all responses (including rate limiters and helmet blocks) have CORS headers
 console.log("CORS Origin configured:", process.env.CLIENT_URL);
 app.use(cors({
   origin: function (origin, callback) {
-    // Development Mode Override
-    if (process.env.DEV_MODE === 'true') {
-      console.log("CORS Allowed (DEV_MODE):", origin);
+    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [];
+
+    // In production, be strict about origins
+    if (process.env.NODE_ENV === 'production') {
+      if (!origin) {
+        return callback(new Error('Not allowed by CORS'));
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("CORS Blocked (Production):", origin);
+      return callback(new Error('Not allowed by CORS'));
+    }
+
+    // Development mode - more permissive but still controlled
+    if (process.env.DEV_MODE === 'true' || process.env.NODE_ENV !== 'production') {
+      // console.log("CORS Allowed (Dev Mode):", origin);
       return callback(null, true);
     }
 
-    const allowedOrigins = process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : [];
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin
     if (!origin) return callback(null, true);
 
-    // Check if origin checks predefined list
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+    // Check if origin is in allowed list
+    if (allowedOrigins.indexOf(origin) !== -1) {
       return callback(null, true);
     }
 
-    // Check if origin is a local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
-    const localNetworkRegex = /^http:\/\/(192\.168|10\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1]))\.\d{1,3}\.\d{1,3}(:\d+)?$/;
-    if (localNetworkRegex.test(origin)) {
-      console.log("CORS Allowed (Local Network):", origin);
-      return callback(null, true);
-    }
-
-    // Attempt to allow localhost explicitly if not in CLIENT_URL
-    if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-      console.log("CORS Allowed (Localhost):", origin);
+    // Allow localhost and private IPs
+    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.startsWith("http://10.")) {
       return callback(null, true);
     }
 
     // If we are here, origin is not allowed
     console.log("CORS Blocked:", origin, "Allowed:", allowedOrigins);
-    callback(null, false);
+    callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  maxAge: 86400
 }));
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "res.cloudinary.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
+      connectSrc: ["'self'", "http://localhost:8000", "http://localhost:3000", "http://10.43.13.241:8000", "http://10.43.13.241:3000"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: null,
+    },
+  },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  },
+  noSniff: true,
+  xssFilter: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' }
+}));
+
+// Global rate limiter
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Increased for development
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict rate limiter for authentication endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Increased for development
+  skipSuccessfulRequests: true,
+  message: 'Too many authentication attempts, please try again later.',
+});
+
+// Apply global rate limiter
+app.use('/api/', globalLimiter);
 
 app.use(express.json({ limit: '1mb' })); // To parse JSON bodies 
 app.use(cookieParser()); // To parse cookies
 app.use(express.urlencoded({ extended: true })); // To parse URL-encoded bodies
+
+// NoSQL injection protection - custom middleware
+app.use(sanitizeNoSQL);
 
 
 
@@ -113,7 +150,10 @@ app.use("/api/v1/references/global", globalReferenceRoutes);
 app.use("/api/v1/references/local", localReferenceRoutes);
 app.use("/api/v1/references/vip", vipReferenceRoutes);
 
-// User routes declared here
+// User routes declared here - with strict rate limiting for auth endpoints
+app.use("/api/v1/users/login", authLimiter);
+app.use("/api/v1/users/forgot-password", authLimiter);
+app.use("/api/v1/users/reset-password", authLimiter);
 app.use("/api/v1/users", userRoutes);
 
 // Parichay OAuth routes declared here. Mount mock routes when PARICHAY_MOCK=true
@@ -126,6 +166,9 @@ if (process.env.PARICHAY_MOCK === 'true') {
 
 // Audit routes declared here
 app.use("/api/v1/audit", auditRoutes);
+
+// AI routes declared here
+app.use("/api/v1/ai", aiRoutes);
 
 // Settings routes declared here
 import settingsRoutes from "./routes/settings.routes.js";
@@ -152,8 +195,12 @@ import backgroundTaskRoutes from "./routes/backgroundTask.routes.js";
 app.use("/api/v1/tasks", backgroundTaskRoutes);
 
 // Blueprint routes
-import blueprintRoutes from "./routes/blueprint.routes.js";
-app.use("/api/v1/blueprints", blueprintRoutes);
+import formTemplateRoutes from "./routes/formTemplate.routes.js";
+app.use("/api/v1/blueprints", formTemplateRoutes);
+
+// Database info endpoint (no auth required for development visibility)
+import { getDatabaseInfo } from "./controllers/dbInfo.controller.js";
+app.get("/api/v1/db-info", getDatabaseInfo);
 
 // http://localhost:8000/api/v1/users/register
 

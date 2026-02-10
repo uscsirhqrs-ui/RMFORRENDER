@@ -1,5 +1,5 @@
 /**
- * @fileoverview Type Definition - Generic API response structure
+ * @fileoverview Source File - Part of the application codebase
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

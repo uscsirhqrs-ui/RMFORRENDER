@@ -25,7 +25,7 @@ const handleResponse = async (response: Response) => {
 
     const data = await response.json();
 
-    console.log("Response global stats handleResponse: ", data);
+
 
     if (!response.ok) {
         throw new Error(data.message || `API Error: ${response.statusText}`);
@@ -36,16 +36,16 @@ const handleResponse = async (response: Response) => {
 
 
 export const getDashboardStats = async () => {
-    console.log("Fetching dashboard stats...");
     const response = await fetch(`${API_BASE_URL}/references/global/getDashboardStats`, { credentials: 'include' });
-    console.log("Response global stats: ", response);
     return handleResponse(response);
 };
 
 export const getReferenceFilters = async (params: { isArchived?: boolean, isHidden?: boolean } = {}) => {
-    console.log("Fetching reference filters...", params);
+
 
     const queryParams = new URLSearchParams();
+    // IMPORTANT: Pass scope='inter-lab' to only get users from global references
+    queryParams.append('scope', 'inter-lab');
     if (params.isArchived !== undefined) queryParams.append('isArchived', String(params.isArchived));
     if (params.isHidden !== undefined) queryParams.append('isHidden', String(params.isHidden));
 
@@ -69,7 +69,7 @@ export const getAllReferences = async (
     sort: { sortBy?: string; sortOrder?: 'asc' | 'desc' } = {}
 ) => {
 
-    console.log("Fetching references with filters/sort...", { page, limit, filters, sort });
+
 
     const queryParams = new URLSearchParams({
         page: page.toString(),
@@ -117,8 +117,7 @@ export const addReference = async (reference: { subject: string; eofficeNo?: str
  */
 export const getReferenceById = async (id: string) => {
 
-    console.log("Fetching reference details from backend API...");
-    console.log("ID: ", id);
+
     // Use query param to prevent caching
     const response = await fetch(`${API_BASE_URL}/references/global/getReferenceById/${id}?t=${new Date().getTime()}`, {
         method: 'GET',

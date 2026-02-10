@@ -1,12 +1,25 @@
+/**
+ * @fileoverview API Controller - Handles HTTP requests and business logic
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiErrors from "../utils/ApiErrors.js";
-import { FormTemplate } from "../models/formTemplate.model.js";
+import { ActiveForm } from "../models/activeForm.model.js";
 import { CollectedData } from "../models/collectedData.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { logActivity } from "../utils/audit.utils.js";
 import { User } from "../models/user.model.js";
+import { FormAssignment } from "../models/formAssignment.model.js";
 import { createNotification } from "./notification.controller.js";
-import { sendEmail, getFormSharedEmailTemplate } from "../utils/mail.js";
+import { sendEmail, getFormSharedEmailTemplate, getFormReminderEmailTemplate } from "../utils/mail.js";
+import { FeatureCodes } from "../constants.js";
+import { hasPermission } from "../utils/permission.utils.js";
 
 /**
  * Shares a COPY of a template with other users.
@@ -14,13 +27,13 @@ import { sendEmail, getFormSharedEmailTemplate } from "../utils/mail.js";
  */
 const shareTemplateCopy = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { targetUserIds, deadline } = req.body; // Array of user IDs and optional deadline
+    const { targetUserIds, deadline, allowDelegation, allowMultipleSubmissions } = req.body; // Array of user IDs and optional deadline
 
     if (!targetUserIds || !Array.isArray(targetUserIds) || targetUserIds.length === 0) {
         throw new ApiErrors("Target users are required", 400);
     }
 
-    const template = await FormTemplate.findById(id);
+    const template = await ActiveForm.findById(id);
     if (!template) {
         throw new ApiErrors("Form template not found", 404);
     }
@@ -30,11 +43,21 @@ const shareTemplateCopy = asyncHandler(async (req, res) => {
         throw new ApiErrors("Unauthorized to share this template", 403);
     }
 
+    // Permission Check: Inter-lab sharing restriction
+    const canInterLab = await hasPermission(req.user.role, FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB);
+    if (!canInterLab) {
+        const recipients = await User.find({ _id: { $in: targetUserIds } }).select("labName");
+        const unauthorizedRecipients = recipients.filter(r => r.labName !== req.user.labName);
+        if (unauthorizedRecipients.length > 0) {
+            throw new ApiErrors("You do not have permission to share forms with users from other labs", 403);
+        }
+    }
+
     const name = req.user.fullName || req.user.email;
     const results = [];
 
     for (const userId of targetUserIds) {
-        const newTemplate = await FormTemplate.create({
+        const newTemplate = await ActiveForm.create({
             title: `Shared: ${template.title}`,
             description: template.description,
             fields: template.fields,
@@ -42,7 +65,9 @@ const shareTemplateCopy = asyncHandler(async (req, res) => {
             sharedWithLabs: [],
             sharedWithUsers: [],
             isPublic: false,
-            deadline: deadline || template.deadline || null
+            deadline: deadline || template.deadline || null,
+            allowDelegation: allowDelegation !== undefined ? allowDelegation : true,
+            allowMultipleSubmissions: allowMultipleSubmissions !== undefined ? allowMultipleSubmissions : false
         });
 
         await createNotification(
@@ -61,12 +86,13 @@ const shareTemplateCopy = asyncHandler(async (req, res) => {
     );
 });
 
+// Refactored getSharedWithMe to support Parallel Assignments (Task-based view)
 /**
  * Gets forms shared WITH the user (for data collection).
+ * Returns specific assignments instead of unique templates.
  */
 const getSharedWithMe = asyncHandler(async (req, res) => {
     const user = req.user;
-    const isSuperadmin = ['superadmin', 'admin'].includes(user.role?.toLowerCase());
 
     // Pagination & Filter Params
     const page = parseInt(req.query.page) || 1;
@@ -77,101 +103,222 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // 1. Initial Match (Access Rights & Archive Status)
-    const accessMatch = {
-        $or: [
-            { sharedWithUsers: user._id },
-            { sharedWithLabs: user.labName },
-            { isPublic: true }
-        ]
-    };
-
-    if (!isSuperadmin) {
-        accessMatch.createdBy = { $ne: user._id };
-    }
-
-    // Archive Logic
-    if (view === 'archived') {
-        accessMatch.archivedBy = user._id;
-    } else {
-        // Active view (default): Not archived by me
-        accessMatch.archivedBy = { $ne: user._id };
-    }
-
-    // Search Logic
-    if (search) {
-        const searchRegex = { $regex: search, $options: 'i' };
-        accessMatch.$or = accessMatch.$or ?
-            accessMatch.$or.map(cond => ({ ...cond, $or: [{ title: searchRegex }, { description: searchRegex }] })) : // This logic is flawed for ANDing
-            [{ title: searchRegex }, { description: searchRegex }];
-
-        // Correct Search Logic: AND the Access checks with OR of Search
-        // We will combine them in the $match stage cleanly
-    }
-
-    // Construct Pipeline
+    // Construct Pipeline based on FormAssignment
     const pipeline = [];
 
-    // Stage 1: Match Access & Archive
-    let matchStage = { ...accessMatch };
-    if (search) {
-        matchStage = {
-            $and: [
-                accessMatch,
-                { $or: [{ title: { $regex: search, $options: 'i' } }, { description: { $regex: search, $options: 'i' } }] }
-            ]
-        };
-    }
+    // Stage 1: Match Assignments for this user
+    const matchStage = {
+        assignedTo: user._id,
+        status: { $ne: 'Returned' } // Don't show returned (inactive) assignments
+    };
 
     pipeline.push({ $match: matchStage });
 
-    // Stage 2: Lookup Creator Details (Populate)
+    // Stage 2: Lookup Template Details (ActiveForm)
+    pipeline.push({
+        $lookup: {
+            from: "activeforms",
+            localField: "templateId",
+            foreignField: "_id",
+            as: "templateDetails"
+        }
+    });
+    pipeline.push({ $unwind: "$templateDetails" });
+
+    // Stage 3: Archive Filtering (Based on Template's archive status for this user)
+    // Note: Archiving on template vs assignment level. 
+    // Legacy logic used ActiveForm.archivedBy. We'll stick to that.
+    if (view === 'archived') {
+        pipeline.push({ $match: { "templateDetails.archivedBy": user._id } });
+    } else {
+        pipeline.push({ $match: { "templateDetails.archivedBy": { $ne: user._id } } });
+    }
+
+    // Stage 4: Search
+    if (search) {
+        pipeline.push({
+            $match: {
+                $or: [
+                    { "templateDetails.title": { $regex: search, $options: 'i' } },
+                    { "templateDetails.description": { $regex: search, $options: 'i' } }
+                ]
+            }
+        });
+    }
+
+    // Stage 5: Lookup Creator Details
     pipeline.push({
         $lookup: {
             from: "users",
-            localField: "createdBy",
+            localField: "templateDetails.createdBy",
             foreignField: "_id",
             as: "creatorDetails",
             pipeline: [{ $project: { fullName: 1, designation: 1, labName: 1 } }]
         }
     });
-
     pipeline.push({ $unwind: { path: "$creatorDetails", preserveNullAndEmptyArrays: true } });
 
-    // Stage 3: Lookup My Submission (To determine isSubmitted)
+    // Stage 6: Lookup Assigner Details (Who assigned this specific task)
+    pipeline.push({
+        $lookup: {
+            from: "users",
+            localField: "assignedBy",
+            foreignField: "_id",
+            as: "assignedByDetails",
+            pipeline: [{ $project: { fullName: 1, designation: 1, labName: 1 } }]
+        }
+    });
+    pipeline.push({ $unwind: { path: "$assignedByDetails", preserveNullAndEmptyArrays: true } });
+
+    // Stage 7: Lookup My Submission (To determine exact status)
     pipeline.push({
         $lookup: {
             from: "collecteddatas",
-            let: { templateId: "$_id", userId: user._id },
+            localField: "dataId",
+            foreignField: "_id",
+            as: "mySubmission",
+            pipeline: [{ $project: { _id: 1, status: 1 } }]
+        }
+    });
+    pipeline.push({ $unwind: { path: "$mySubmission", preserveNullAndEmptyArrays: true } });
+
+    // Stage 8: Lookup My Delegation (Has this user delegated it out?)
+    // We look for an assignment where assignedBy is ME and templateId matches
+    pipeline.push({
+        $lookup: {
+            from: "formassignments",
+            let: { templateId: "$templateId", myId: user._id },
             pipeline: [
                 {
                     $match: {
                         $expr: {
                             $and: [
                                 { $eq: ["$templateId", "$$templateId"] },
-                                { $eq: ["$submittedBy", "$$userId"] }
+                                { $eq: ["$assignedBy", "$$myId"] },
+                                { $ne: ["$status", "Returned"] } // Only active delegations
                             ]
                         }
                     }
                 },
+                { $sort: { createdAt: -1 } },
                 { $limit: 1 },
-                { $project: { _id: 1 } } // We only need existence
+                // Populate the person I delegated to for UI "Delegated To: X"
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "assignedTo",
+                        foreignField: "_id",
+                        as: "delegatedToDetails",
+                        pipeline: [{ $project: { fullName: 1, designation: 1, labName: 1 } }]
+                    }
+                },
+                { $unwind: { path: "$delegatedToDetails", preserveNullAndEmptyArrays: true } }
             ],
-            as: "mySubmission"
+            as: "myDelegation"
         }
     });
+    pipeline.push({ $unwind: { path: "$myDelegation", preserveNullAndEmptyArrays: true } });
 
-    // Stage 4: Add Computed Fields
+    // Stage 8b: Lookup Latest Assignment in My Branch (Current Holder)
+    pipeline.push({
+        $lookup: {
+            from: "formassignments",
+            let: { templateId: "$templateId", myId: user._id },
+            pipeline: [
+                {
+                    $match: {
+                        $expr: {
+                            $and: [
+                                { $eq: ["$templateId", "$$templateId"] },
+                                { $in: ["$$myId", "$delegationChain"] }
+                            ]
+                        }
+                    }
+                },
+                { $sort: { createdAt: -1 } },
+                { $limit: 1 },
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "assignedTo",
+                        foreignField: "_id",
+                        as: "holder",
+                        pipeline: [{ $project: { fullName: 1, designation: 1, labName: 1 } }]
+                    }
+                },
+                { $unwind: "$holder" },
+                { $project: { holder: 1 } }
+            ],
+            as: "latestBranchAssignment"
+        }
+    });
+    pipeline.push({ $unwind: { path: "$latestBranchAssignment", preserveNullAndEmptyArrays: true } });
+
+    // Stage 8: Add Computed Fields & Map to Frontend Structure
+    // We map the assignment structure to look like the 'ActiveForm' structure expected by frontend,
+    // but populated with assignment-specific metadata.
     pipeline.push({
         $addFields: {
-            createdBy: "$creatorDetails", // Map back to original structure
-            isSubmitted: { $gt: [{ $size: "$mySubmission" }, 0] },
+            // Use Template fields as base
+            _id: "$templateDetails._id", // Keep template ID as _id for some compatibility? 
+            // NO. Keys will clash. 
+            // Let's use template info but keep activeForm ID.
+            // Frontend uses keys. We instructed to use assignmentId.
+            title: "$templateDetails.title",
+            description: "$templateDetails.description",
+            deadline: "$templateDetails.deadline",
+            createdAt: "$createdAt", // Assignment creation date is more relevant for "Received On"
+            isActive: "$templateDetails.isActive",
+            allowDelegation: "$templateDetails.allowDelegation",
+
+            // Creator info (Original Owner)
+            createdBy: "$creatorDetails",
+
+            // Assigner info (Who sent it to me)
+            assignedBy: "$assignedByDetails", // New field for frontend to show "Shared By" correctly
+
+            // Status Logic
+            isSubmitted: {
+                $cond: {
+                    if: {
+                        $or: [
+                            { $eq: ["$status", "Submitted"] },
+                            { $eq: ["$status", "Approved"] },
+                            { $eq: ["$mySubmission.status", "Submitted"] },
+                            { $eq: ["$mySubmission.status", "Approved"] }
+                        ]
+                    },
+                    then: true,
+                    else: false
+                }
+            },
+            workflowStatus: {
+                $cond: {
+                    if: { $gt: ["$mySubmission.status", null] },
+                    then: "$mySubmission.status",
+                    else: "$status"
+                }
+            },
+
+            assignmentId: "$_id", // Crucial for parallel handling
+            assignment: "$$ROOT", // Embed full assignment if needed
+            myDelegation: "$myDelegation", // NEW: Check if I delegated it
+            // currentHolder: "$latestBranchAssignment.holder", // The current holder of the ball
+            // FIX: If the form is submitted, the holder is the Initiator (Creator), not the submitter
+            currentHolder: {
+                $cond: {
+                    if: { $eq: ["$latestBranchAssignment.status", "Submitted"] },
+                    then: "$creatorDetails",
+                    else: "$latestBranchAssignment.holder"
+                }
+            },
+
             daysToDeadline: {
                 $cond: {
-                    if: { $ifNull: ["$deadline", false] },
+                    if: { $ifNull: ["$templateDetails.deadline", false] },
                     then: {
                         $divide: [
-                            { $subtract: ["$deadline", new Date()] },
+                            { $subtract: ["$templateDetails.deadline", new Date()] },
                             1000 * 60 * 60 * 24
                         ]
                     },
@@ -181,7 +328,7 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
         }
     });
 
-    // Stage 5: Status Filtering
+    // Stage 9: Status Filtering (Re-applied on computed fields)
     if (status !== 'all') {
         const now = new Date();
         const twoDaysAgo = new Date(now.getTime() - (2 * 24 * 60 * 60 * 1000));
@@ -191,7 +338,6 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
         } else if (status === 'pending') {
             pipeline.push({ $match: { isSubmitted: false, $or: [{ deadline: { $exists: false } }, { deadline: { $gt: now } }] } });
         } else if (status === 'expiring') {
-            // Expiring within 3 days (0 to 3 days remaining)
             pipeline.push({
                 $match: {
                     isSubmitted: false,
@@ -200,7 +346,6 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
                 }
             });
         } else if (status === 'new') {
-            // Created recently (< 2 days) AND not submitted
             pipeline.push({
                 $match: {
                     isSubmitted: false,
@@ -210,13 +355,26 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
         }
     }
 
-    // Stage 6: Sorting
-    // Default: Priority (Expiring Soon) -> Created Date
+    // Stage 10: Deduplication - Group by Template ID to show only one instance per form
     pipeline.push({
-        $sort: { createdAt: -1 }
+        $sort: { createdAt: -1 } // Ensure we get the latest assignment first
     });
 
-    // Stage 7: Faceted Pagination
+    pipeline.push({
+        $group: {
+            _id: "$templateId",
+            doc: { $first: "$$ROOT" } // Keep the latest assignment document
+        }
+    });
+
+    pipeline.push({
+        $replaceRoot: { newRoot: "$doc" }
+    });
+
+    // Stage 11: Sorting (Assignment creation date - re-sort after grouping)
+    pipeline.push({ $sort: { createdAt: -1 } });
+
+    // Stage 12: Faceted Pagination
     pipeline.push({
         $facet: {
             metadata: [{ $count: "total" }],
@@ -224,14 +382,14 @@ const getSharedWithMe = asyncHandler(async (req, res) => {
         }
     });
 
-    const result = await FormTemplate.aggregate(pipeline);
+    const result = await FormAssignment.aggregate(pipeline);
 
     const data = result[0].data || [];
     const total = result[0].metadata[0] ? result[0].metadata[0].total : 0;
     const totalPages = Math.ceil(total / limit);
 
     return res.status(200).json(
-        new ApiResponse(200, "Shared forms fetched successfully", {
+        new ApiResponse(200, "Shared forms (assignments) fetched successfully", {
             forms: data,
             pagination: {
                 page,
@@ -258,6 +416,8 @@ const getSharedByMe = asyncHandler(async (req, res) => {
     const skip = (page - 1) * limit;
 
     // 1. Initial Match
+    // Only show forms CREATED by the user (Primary Distributor)
+    // Delegated forms are viewed in "Shared With Me"
     const matchCriteria = {
         createdBy: user._id,
         $or: [
@@ -303,44 +463,122 @@ const getSharedByMe = asyncHandler(async (req, res) => {
     });
     pipeline.push({ $unwind: { path: "$creatorDetails", preserveNullAndEmptyArrays: true } });
 
-    // Stage 3: Lookup Response Count
+    // Stage 3: Lookup Shared Users Details
+    pipeline.push({
+        $lookup: {
+            from: "users",
+            localField: "sharedWithUsers",
+            foreignField: "_id",
+            as: "sharedUserDetails",
+            pipeline: [{ $project: { fullName: 1, email: 1, designation: 1, labName: 1 } }]
+        }
+    });
+
+    // Stage 4: Lookup Submissions for this template
     pipeline.push({
         $lookup: {
             from: "collecteddatas",
             localField: "_id",
             foreignField: "templateId",
-            as: "responses" // This could be heavy if thousands of responses. Just Count is needed.
-            // Optimization: Use $count in sub-pipeline if possible?
-            // "collecteddatas" might be huge. Loading all response docs into array just to count is bad.
-            // Better: lookup metadata or use $facet? No, $lookup pipeline can count.
+            as: "allSubmissions",
+            pipeline: [
+                { $match: { status: 'Submitted' } }, // Only count explicitly submitted responses
+                { $project: { submittedBy: 1, createdAt: 1, status: 1 } }
+            ]
         }
     });
 
+    // Stage 5: Lookup Assignments to track Current Holder
+    pipeline.push({
+        $lookup: {
+            from: "formassignments",
+            localField: "_id",
+            foreignField: "templateId",
+            as: "allAssignments",
+            pipeline: [
+                { $sort: { createdAt: -1 } }, // Latest first
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "assignedTo",
+                        foreignField: "_id",
+                        as: "holderDetails",
+                        pipeline: [{ $project: { fullName: 1, designation: 1, labName: 1 } }]
+                    }
+                },
+                { $unwind: { path: "$holderDetails", preserveNullAndEmptyArrays: true } },
+                { $project: { delegationChain: 1, holderDetails: 1, status: 1 } }
+            ]
+        }
+    });
+
+    // Stage 5: Add Computed Fields & Map Status
     pipeline.push({
         $addFields: {
             createdBy: "$creatorDetails",
-            responseCount: { $size: "$responses" } // This still loads them. 
+            responseCount: { $size: "$allSubmissions" },
+            // Populate sharedWithUsers with status and Current Holder
+            sharedWithUsers: {
+                $map: {
+                    input: "$sharedUserDetails",
+                    as: "user",
+                    in: {
+                        _id: "$$user._id",
+                        fullName: "$$user.fullName",
+                        email: "$$user.email",
+                        designation: "$$user.designation",
+                        labName: "$$user.labName",
+                        isSubmitted: {
+                            $in: ["$$user._id", "$allSubmissions.submittedBy"]
+                        },
+                        // Find the current holder for the chain involving this user
+                        currentHolder: {
+                            $let: {
+                                vars: {
+                                    latestAssignment: {
+                                        $arrayElemAt: [
+                                            {
+                                                $filter: {
+                                                    input: "$allAssignments",
+                                                    as: "asn",
+                                                    // Check if this user is in the delegation chain of the assignment
+                                                    cond: { $in: ["$$user._id", "$$asn.delegationChain"] }
+                                                }
+                                            },
+                                            0
+                                        ]
+                                    }
+                                },
+                                in: "$$latestAssignment.holderDetails"
+                            }
+                        },
+                        submission: {
+                            $let: {
+                                vars: {
+                                    submission: {
+                                        $arrayElemAt: [
+                                            {
+                                                $filter: {
+                                                    input: "$allSubmissions",
+                                                    as: "sub",
+                                                    cond: { $eq: ["$$sub.submittedBy", "$$user._id"] }
+                                                }
+                                            },
+                                            0
+                                        ]
+                                    }
+                                },
+                                in: {
+                                    date: "$$submission.createdAt",
+                                    status: "$$submission.status"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     });
-    // To optimize responseCount safely without loading docs in memory:
-    // We should use a different structure or accept this cost. 
-    // Given scope, $size is okay for now, but strictly speaking it's heavy.
-    // Correct way:
-    // pipeline: [ { $match: { $expr: { $eq: ["$templateId", "$$tId"] } } }, { $count: "count" } ]
-    // But let's stick to $size for consistency with existing code if it wasn't counting via lookup before? 
-    // Existing code was `CollectedData.countDocuments`.
-    // Let's just project `_id` in the lookup to minimize memory size.
-
-    // Optimized Lookup for Count
-    pipeline[pipeline.length - 2] = {
-        $lookup: {
-            from: "collecteddatas",
-            localField: "_id",
-            foreignField: "templateId",
-            as: "responses",
-            pipeline: [{ $project: { _id: 1 } }]
-        }
-    };
 
     // Stage 4: Sorting
     pipeline.push({ $sort: { createdAt: -1 } });
@@ -353,7 +591,7 @@ const getSharedByMe = asyncHandler(async (req, res) => {
         }
     });
 
-    const result = await FormTemplate.aggregate(pipeline);
+    const result = await ActiveForm.aggregate(pipeline);
 
     const data = result[0].data || [];
     const total = result[0].metadata[0] ? result[0].metadata[0].total : 0;
@@ -380,7 +618,7 @@ const toggleArchive = asyncHandler(async (req, res) => {
     const { archive } = req.body; // true = archive, false = unarchive
     const user = req.user;
 
-    const template = await FormTemplate.findById(id);
+    const template = await ActiveForm.findById(id);
     if (!template) {
         throw new ApiErrors("Form template not found", 404);
     }
@@ -400,9 +638,9 @@ const toggleArchive = asyncHandler(async (req, res) => {
     }
 
     if (archive) {
-        await FormTemplate.findByIdAndUpdate(id, { $addToSet: { archivedBy: user._id } });
+        await ActiveForm.findByIdAndUpdate(id, { $addToSet: { archivedBy: user._id } });
     } else {
-        await FormTemplate.findByIdAndUpdate(id, { $pull: { archivedBy: user._id } });
+        await ActiveForm.findByIdAndUpdate(id, { $pull: { archivedBy: user._id } });
     }
 
     return res.status(200).json(
@@ -410,9 +648,113 @@ const toggleArchive = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * Sends reminders to users who haven't submitted the form.
+ */
+const sendReminders = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { targetUserIds } = req.body; // Array of user IDs to remind
+
+    if (!targetUserIds || !Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+        throw new ApiErrors("Target users are required", 400);
+    }
+
+    const template = await ActiveForm.findById(id);
+    if (!template) {
+        throw new ApiErrors("Form template not found", 404);
+    }
+
+    // Only Creator or Superadmin can send reminders
+    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
+    if (template.createdBy.toString() !== req.user._id.toString() && !isSuperadmin) {
+        throw new ApiErrors("Unauthorized to send reminders for this form", 403);
+    }
+
+    const name = req.user.fullName || req.user.email;
+    const sentCount = 0;
+
+    for (const userId of targetUserIds) {
+        // Double check if they haven't submitted? 
+        // Optional, but good practice. For now, rely on frontend sending correct list.
+
+        await createNotification(
+            userId,
+            "FORM_REMINDER",
+            "Form Submission Reminder",
+            `Reminder: Please submit the form "${template.title}" shared by ${name}.`,
+            template._id
+        );
+
+        // Ideally send email too
+        // const user = await User.findById(userId);
+        // if (user?.email) { ... }
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, "Reminders sent successfully")
+    );
+});
+
+/**
+ * Sends reminders to users who haven't submitted the form.
+ * (Updated with Email Support)
+ */
+const sendRemindersWithEmail = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { targetUserIds } = req.body; // Array of user IDs to remind
+
+    if (!targetUserIds || !Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+        throw new ApiErrors("Target users are required", 400);
+    }
+
+    const template = await ActiveForm.findById(id);
+    if (!template) {
+        throw new ApiErrors("Form template not found", 404);
+    }
+
+    // Only Creator or Superadmin can send reminders
+    const isSuperadmin = ['superadmin', 'admin'].includes(req.user.role?.toLowerCase());
+    if (template.createdBy.toString() !== req.user._id.toString() && !isSuperadmin) {
+        throw new ApiErrors("Unauthorized to send reminders for this form", 403);
+    }
+
+    const name = req.user.fullName || req.user.email;
+
+    // Fetch user details for email
+    const users = await User.find({ _id: { $in: targetUserIds } }).select("email fullName");
+
+    for (const user of users) {
+        // Create in-app notification
+        await createNotification(
+            user._id,
+            "FORM_REMINDER",
+            "Form Submission Reminder",
+            `Reminder: Please submit the form "${template.title}" shared by ${name}.`,
+            template._id,
+            "Form" // referenceType
+        );
+
+        // Send Email
+        if (user.email) {
+            const emailHtml = getFormReminderEmailTemplate(template, name);
+            sendEmail({
+                to: user.email,
+                subject: `Reminder: Action Required for "${template.title}"`,
+                html: emailHtml
+            });
+        }
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, `Reminders sent to ${users.length} users`)
+    );
+});
+
 export {
     shareTemplateCopy,
     getSharedWithMe,
     getSharedByMe,
-    toggleArchive
+    toggleArchive,
+    sendRemindersWithEmail as sendReminders
 };
+

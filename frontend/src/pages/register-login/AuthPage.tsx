@@ -91,7 +91,8 @@ const AuthPage: React.FC = () => {
             availableRoles: user.availableRoles,
             mobileNo: user.mobileNo,
             avatar: user.avatar,
-            initials: (user.fullName || user.email).slice(0, 2).toUpperCase()
+            initials: (user.fullName || user.email).slice(0, 2).toUpperCase(),
+            hasApprovalAuthority: user.hasApprovalAuthority
           });
 
           const isApproved = user.status === 'Approved';

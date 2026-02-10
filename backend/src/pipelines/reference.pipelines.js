@@ -30,63 +30,6 @@ export const getReferencesWithDetailsPipeline = (matchCriteria = {}) => {
             }
         },
         {
-            $lookup: {
-                from: "users",
-                localField: "markedTo",
-                foreignField: "_id",
-                as: "markedToUserParams",
-                pipeline: [{ $project: { division: 1, designation: 1, email: 1 } }]
-            }
-        },
-        {
-            $lookup: {
-                from: "users",
-                localField: "createdBy",
-                foreignField: "_id",
-                as: "creatorParams",
-                pipeline: [{ $project: { division: 1, designation: 1 } }]
-            }
-        },
-        {
-            $addFields: {
-                currentMarkedToDivision: { $arrayElemAt: ["$markedToUserParams.division", 0] },
-                // Merge designations into each markedToUserParam
-                markedToDetailsWithDesignations: {
-                    $map: {
-                        input: { $ifNull: ["$markedToDetails", []] },
-                        as: "detail",
-                        in: {
-                            $mergeObjects: [
-                                "$$detail",
-                                {
-                                    designation: {
-                                        $let: {
-                                            vars: {
-                                                userParam: {
-                                                    $arrayElemAt: [
-                                                        {
-                                                            $filter: {
-                                                                input: "$markedToUserParams",
-                                                                as: "up",
-                                                                cond: { $eq: ["$$up.email", "$$detail.email"] }
-                                                            }
-                                                        },
-                                                        0
-                                                    ]
-                                                }
-                                            },
-                                            in: "$$userParam.designation"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                createdByDesignation: { $arrayElemAt: ["$creatorParams.designation", 0] }
-            }
-        },
-        {
             $project: {
                 subject: 1,
                 refId: 1,
@@ -97,13 +40,11 @@ export const getReferencesWithDetailsPipeline = (matchCriteria = {}) => {
                 daysSinceCreated: 1,
                 createdBy: 1,
                 markedTo: 1,
-                createdByDetails: {
-                    $mergeObjects: ["$createdByDetails", { designation: "$createdByDesignation" }]
-                },
-                markedToDetails: "$markedToDetailsWithDesignations",
-                markedToDivision: { $ifNull: ["$markedToDivision", "$currentMarkedToDivision"] },
-                pendingDivision: { $ifNull: ["$markedToDivision", "$currentMarkedToDivision"] },
-                pendingLab: { $arrayElemAt: [{ $ifNull: ["$markedToDetailsWithDesignations.labName", []] }, 0] },
+                createdByDetails: 1,
+                markedToDetails: 1,
+                markedToDivision: 1,
+                pendingDivision: "$markedToDivision",
+                pendingLab: { $arrayElemAt: ["$markedToDetails.labName", 0] },
                 createdLab: "$createdByDetails.labName",
                 remarks: 1,
                 eofficeNo: 1,
@@ -112,7 +53,8 @@ export const getReferencesWithDetailsPipeline = (matchCriteria = {}) => {
                 sentAt: 1,
                 isHidden: 1,
                 isArchived: 1,
-                labName: 1
+                labName: 1,
+                reopenRequest: 1
             }
         }
     ];

@@ -29,7 +29,8 @@ import {
     RefreshCw,
     ToggleLeft,
     ToggleRight,
-    Sparkles
+    Sparkles,
+    Upload
 } from 'lucide-react';
 import { getSystemConfig, updateSystemConfig } from '../services/systemConfig.api';
 import { getArchivableCount, performArchiving } from '../services/archive.api';
@@ -53,6 +54,9 @@ const SystemSettingsPage: React.FC = () => {
 
     // Application Limits State
     const [remarksLimit, setRemarksLimit] = useState('150');
+    const [maxFileSizeMB, setMaxFileSizeMB] = useState('1');
+    const [isFileUploadEnabled, setIsFileUploadEnabled] = useState(true);
+    const [aiGenerationLimit, setAiGenerationLimit] = useState('10');
 
     // Archiving State
     const [retentionDays, setRetentionDays] = useState('365');
@@ -84,6 +88,9 @@ const SystemSettingsPage: React.FC = () => {
     const [divisions, setDivisions] = useState<string[]>([]);
     const [newDivision, setNewDivision] = useState('');
     const [loadingDivisions, setLoadingDivisions] = useState(false);
+
+    // Approval Authority State
+    const [authorityDesignations, setAuthorityDesignations] = useState<string[]>([]);
 
     useEffect(() => {
         fetchAllSettings();
@@ -124,6 +131,18 @@ const SystemSettingsPage: React.FC = () => {
             }
             if (response.data['LOGIN_MESSAGE_CONTENT'] !== undefined) {
                 setLoginMessageContent(response.data['LOGIN_MESSAGE_CONTENT']);
+            }
+            if (response.data['APPROVAL_AUTHORITY_DESIGNATIONS']) {
+                setAuthorityDesignations(response.data['APPROVAL_AUTHORITY_DESIGNATIONS']);
+            }
+            if (response.data['MAX_FILE_SIZE_MB']) {
+                setMaxFileSizeMB(String(response.data['MAX_FILE_SIZE_MB']));
+            }
+            if (response.data['FILE_UPLOADS_ENABLED'] !== undefined) {
+                setIsFileUploadEnabled(response.data['FILE_UPLOADS_ENABLED']);
+            }
+            if (response.data['AI_GENERATION_LIMIT_PER_DAY']) {
+                setAiGenerationLimit(String(response.data['AI_GENERATION_LIMIT_PER_DAY']));
             }
         }
     };
@@ -175,7 +194,11 @@ const SystemSettingsPage: React.FC = () => {
                 'ARCHIVE_RETENTION_DAYS': Number(retentionDays),
                 'AUTO_ARCHIVE_ENABLED': isAutoArchiveEnabled,
                 'SHOW_LOGIN_MESSAGE': showLoginMessage,
-                'LOGIN_MESSAGE_CONTENT': loginMessageContent
+                'LOGIN_MESSAGE_CONTENT': loginMessageContent,
+                'APPROVAL_AUTHORITY_DESIGNATIONS': authorityDesignations,
+                'MAX_FILE_SIZE_MB': Number(maxFileSizeMB),
+                'FILE_UPLOADS_ENABLED': isFileUploadEnabled,
+                'AI_GENERATION_LIMIT_PER_DAY': Number(aiGenerationLimit)
             };
 
             const response = await updateSystemConfig(updates);
@@ -411,6 +434,24 @@ const SystemSettingsPage: React.FC = () => {
                                     Closed references older than this will be archived.
                                 </p>
                             </div>
+
+                            <div>
+                                <InputField
+                                    id="aiGenerationLimit"
+                                    label="AI Generation Limit (Per User Per Day)"
+                                    type="number"
+                                    value={aiGenerationLimit}
+                                    onChange={(e) => setAiGenerationLimit(e.target.value)}
+                                    placeholder="e.g. 10"
+                                    min="1"
+                                    max="100"
+                                    required
+                                    icon={<Sparkles className="w-4 h-4 text-gray-400" />}
+                                />
+                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                    Maximum number of AI-powered forms a user can generate per day.
+                                </p>
+                            </div>
                         </div>
 
                         <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
@@ -441,6 +482,70 @@ const SystemSettingsPage: React.FC = () => {
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            {/* File & Media Settings */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <Upload className="w-5 h-5 text-indigo-600 shrink-0 mt-[1.5px]" />
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-white font-heading m-0">File & Media Settings</h2>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${isFileUploadEnabled ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                                <Upload className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-800 dark:text-white leading-none">Enable File Uploads</p>
+                                <p className="text-xs text-gray-500 mt-1">Globally control file upload capabilities across the system.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsFileUploadEnabled(!isFileUploadEnabled)}
+                            className={`p-1 rounded-lg transition-all ${isFileUploadEnabled ? 'text-emerald-500' : 'text-gray-400'}`}
+                        >
+                            {isFileUploadEnabled ? <ToggleRight className="w-10 h-10" /> : <ToggleLeft className="w-10 h-10" />}
+                        </button>
+                    </div>
+
+                    {isFileUploadEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div>
+                                <InputField
+                                    id="maxFileSize"
+                                    label="Maximum File Upload Size (MB)"
+                                    type="number"
+                                    value={maxFileSizeMB}
+                                    onChange={(e) => setMaxFileSizeMB(e.target.value)}
+                                    placeholder="e.g. 1"
+                                    min="1"
+                                    max="50"
+                                    required
+                                    icon={<ArrowUp className="w-4 h-4 text-gray-400" />}
+                                />
+                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                                    Global limit for individual file uploads in Megabytes.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                        <button
+                            onClick={handleSaveLimits}
+                            disabled={isSaving}
+                            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {isSaving ? 'Saving...' : 'Update File Settings'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -673,6 +778,46 @@ const SystemSettingsPage: React.FC = () => {
                 </div>
             </div>
 
+            {/* Divisions Management */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <Users className="w-5 h-5 text-indigo-600 shrink-0 mt-[1.5px]" />
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-white font-heading m-0">Manage Divisions / Sections</h2>
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                            type="text"
+                            value={newDivision}
+                            onChange={(e) => setNewDivision(e.target.value)}
+                            placeholder="e.g. Finance & Accounts"
+                            className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            onKeyDown={(e) => e.key === 'Enter' && handleAddDivision()}
+                        />
+                        <button onClick={handleAddDivision} className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium">
+                            <Plus className="w-5 h-5" /> Add Division
+                        </button>
+                    </div>
+                    {loadingDivisions ? (
+                        <div className="py-2 text-center text-gray-400">Loading divisions...</div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1 custom-scrollbar">
+                            {divisions.map(div => (
+                                <div key={div} className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{div}</span>
+                                    <button onClick={() => handleRemoveDivision(div)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+
             {/* Designations Management */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
@@ -749,43 +894,59 @@ const SystemSettingsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Divisions Management */}
+            {/* Approval Authority Management */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+                <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Users className="w-5 h-5 text-indigo-600 shrink-0 mt-[1.5px]" />
-                        <h2 className="text-lg font-bold text-gray-800 dark:text-white font-heading m-0">Manage Divisions / Sections</h2>
+                        <Shield className="w-5 h-5 text-indigo-600 shrink-0 mt-[1.5px]" />
+                        <h2 className="text-lg font-bold text-gray-800 dark:text-white font-heading m-0">Approval Authority</h2>
                     </div>
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                            type="text"
-                            value={newDivision}
-                            onChange={(e) => setNewDivision(e.target.value)}
-                            placeholder="e.g. Finance & Accounts"
-                            className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddDivision()}
-                        />
-                        <button onClick={handleAddDivision} className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors flex items-center gap-2 font-medium">
-                            <Plus className="w-5 h-5" /> Add Division
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Select designations authorized to provide approvals for workflows (e.g., Form Approvals).
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto p-1 custom-scrollbar">
+                        {designations.map(desig => (
+                            <label
+                                key={desig}
+                                className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${authorityDesignations.includes(desig)
+                                    ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800'
+                                    : 'bg-white border-gray-200 hover:border-indigo-100 dark:bg-gray-900 dark:border-gray-700'
+                                    }`}
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                                    checked={authorityDesignations.includes(desig)}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            setAuthorityDesignations([...authorityDesignations, desig]);
+                                        } else {
+                                            setAuthorityDesignations(authorityDesignations.filter(d => d !== desig));
+                                        }
+                                    }}
+                                />
+                                <span className={`text-sm font-medium ${authorityDesignations.includes(desig) ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300'
+                                    }`}>
+                                    {desig}
+                                </span>
+                            </label>
+                        ))}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                        <button
+                            onClick={handleSaveLimits}
+                            disabled={isSaving}
+                            className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-md font-medium disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {isSaving ? 'Saving...' : 'Update Approval Authority'}
                         </button>
                     </div>
-                    {loadingDivisions ? (
-                        <div className="py-2 text-center text-gray-400">Loading divisions...</div>
-                    ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-80 overflow-y-auto p-1 custom-scrollbar">
-                            {divisions.map(div => (
-                                <div key={div} className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-200 dark:hover:border-indigo-900 transition-all">
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{div}</span>
-                                    <button onClick={() => handleRemoveDivision(div)} className="text-gray-400 hover:text-red-500 transition-colors">
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
 

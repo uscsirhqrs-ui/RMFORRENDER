@@ -1,5 +1,5 @@
 /**
- * @fileoverview React Component - Modal for bulk updating local references
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -35,10 +35,10 @@ const BulkUpdateLocalReferenceModal: React.FC<BulkUpdateLocalReferenceModalProps
             try {
                 // Fetch filters to get eligible users (users in same lab)
                 const res = await getLocalReferenceFilters();
-                if (res.success && res.data && res.data.markedToUsers) {
-                    // Filter out self and Superadmins (optional, but keep consistent with rule)
+                if (res.success && res.data && res.data.allLabUsers) {
+                    // Filter out self
                     // Rule: Can assign to anyone in lab (except self)
-                    const validUsers = res.data.markedToUsers.filter((u: any) => {
+                    const validUsers = res.data.allLabUsers.filter((u: any) => {
                         const isSelf = currentUser?._id && u._id && String(u._id) === String(currentUser._id);
                         const isSelfEmail = currentUser?.email && u.email && u.email.toLowerCase() === currentUser.email.toLowerCase();
                         // Ensure same lab (should be guaranteed by API, but double check)
@@ -113,8 +113,15 @@ const BulkUpdateLocalReferenceModal: React.FC<BulkUpdateLocalReferenceModalProps
 
                 <div className="p-6">
                     {message && (
-                        <div className={`mb-4 p-3 rounded-xl text-sm font-medium border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-                            {message.text}
+                        <div className={`mb-4 p-4 rounded-xl text-sm font-medium border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+                            <div className="flex items-start gap-2">
+                                {message.type === 'error' && (
+                                    <span className="text-rose-600 font-bold shrink-0">⚠</span>
+                                )}
+                                <div className="flex-1 max-h-32 overflow-y-auto">
+                                    <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                                </div>
+                            </div>
                         </div>
                     )}
 

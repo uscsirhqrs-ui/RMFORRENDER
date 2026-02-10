@@ -19,9 +19,11 @@ interface UserDropdownProps {
   userEmail?: string;
   userRole?: string;
   userAvatar?: string;
+  userDesignation?: string;
+  hasApprovalAuthority?: boolean;
 }
 
-function UserDropdown({ labName = 'User', userInitials = 'U', userEmail = 'user@example.com', userRole = 'User', userAvatar }: UserDropdownProps) {
+function UserDropdown({ labName = 'User', userInitials = 'U', userEmail = 'user@example.com', userRole = 'User', userAvatar, userDesignation, hasApprovalAuthority }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { } = useAuth();
@@ -87,10 +89,23 @@ function UserDropdown({ labName = 'User', userInitials = 'U', userEmail = 'user@
       {isOpen && (
         <div className="absolute right-0 mt-3 w-56 lg:w-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 py-3 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           {/* User Info */}
-          <div className="px-5 py-3 border-b border-gray-50 dark:border-gray-700 bg-gray-50/30">
-            <p className="text-sm font-bold text-gray-900 truncate" title={labName}>{labName}</p>
-            <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-1">{userRole}</p>
-            <p className="text-xs text-gray-500 truncate" title={userEmail}>{userEmail}</p>
+          <div className="px-5 py-3 border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50/30">
+            <div className="flex flex-col">
+              <p className="text-sm font-bold text-gray-900 truncate leading-tight" title={labName}>{labName}</p>
+              <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest leading-tight">{userRole}</p>
+              {userDesignation && (
+                <p className="text-[10px] font-bold text-gray-500 uppercase leading-tight">{userDesignation}</p>
+              )}
+              {/* Logic: Show badge if explicit authority OR designation implies it (Director, DG, Head) */}
+              {(hasApprovalAuthority || /director|dg|head/i.test(userDesignation || '')) && (
+                <div>
+                  <p className="text-[9px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-px rounded-full border border-emerald-200 uppercase tracking-tighter shadow-sm inline-block leading-tight">
+                    Approval Authority
+                  </p>
+                </div>
+              )}
+              <p className="text-xs text-gray-500 truncate leading-tight" title={userEmail}>{userEmail}</p>
+            </div>
           </div>
 
           {/* Menu Items */}

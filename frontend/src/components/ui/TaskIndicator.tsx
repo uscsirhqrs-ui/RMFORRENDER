@@ -1,3 +1,13 @@
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import { useState, useEffect, useRef } from 'react';
 import { Loader2, CheckCircle, AlertCircle, Activity } from 'lucide-react';
 import axios from 'axios';

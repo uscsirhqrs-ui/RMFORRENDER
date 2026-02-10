@@ -39,6 +39,21 @@ const LocalMovementSchema = new Schema(
             type: Date,
             default: Date.now,
         },
+        performedByDetails: {
+            fullName: String,
+            email: String,
+            labName: String,
+            designation: String,
+            division: String
+        },
+        markedToDetails: [{
+            _id: Schema.Types.ObjectId,
+            fullName: String,
+            email: String,
+            labName: String,
+            designation: String,
+            division: String
+        }]
     },
     {
         timestamps: true,

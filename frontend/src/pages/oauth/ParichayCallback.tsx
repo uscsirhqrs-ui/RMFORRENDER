@@ -1,5 +1,5 @@
 /**
- * @fileoverview Parichay OAuth Callback Page - Handles OAuth callback from Parichay
+ * @fileoverview React Component - UI component for the application
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

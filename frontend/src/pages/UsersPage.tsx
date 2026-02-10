@@ -10,11 +10,12 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { getAllUsers, updateUserStatus, bulkUpdateUserStatus, bulkDeleteUsers, manualActivateUser, bulkActivateUsers } from '../services/user.api';
+import { getDesignations } from '../services/settings.api';
 import { ShieldCheck, UserPlus, Trash2, XCircle, ShieldAlert, Search } from "lucide-react";
 import { useAuth, type User } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import AddAdminModal from "../components/ui/AddAdminModal";
-import { FeatureCodes, SUPERADMIN_ROLE_NAME } from "../constants";
+import { FeatureCodes } from "../constants";
 import Button from '../components/ui/Button';
 import BulkUserManagementModal from '../components/ui/BulkUserManagementModal';
 import Table from '../components/ui/Table';
@@ -23,7 +24,7 @@ import ColumnVisibilityDropdown from '../components/ui/ColumnVisibilityDropdown'
 import { useMessageBox } from '../context/MessageBoxContext';
 
 const UsersPage: React.FC = () => {
-    const { user: currentUser, hasPermission } = useAuth();
+    const { user: currentUser, hasPermission, permissions } = useAuth();
     const { showMessage, showConfirm } = useMessageBox();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -41,6 +42,8 @@ const UsersPage: React.FC = () => {
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
     const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+    const [selectedDesignations, setSelectedDesignations] = useState<string[]>([]);
+    const [allDesignations, setAllDesignations] = useState<string[]>([]);
     const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
     const allHeaders = ['selection', 'user', 'fullName', 'labName', 'division', 'designation', 'availableRoles', 'status', 'actions'];
 
@@ -73,7 +76,16 @@ const UsersPage: React.FC = () => {
         }, 500);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [currentPage, searchTerm, rowsPerPage]);
+    }, [currentPage, searchTerm, rowsPerPage, selectedStatuses, selectedLabs, selectedRoles, selectedDesignations]);
+
+    // Fetch initial filter data
+    useEffect(() => {
+        const fetchFilters = async () => {
+            const desigRes = await getDesignations();
+            if (desigRes.success) setAllDesignations(desigRes.data.designations);
+        };
+        fetchFilters();
+    }, []);
 
     // Set initial lab filter for restricted admins
     useEffect(() => {
@@ -85,7 +97,12 @@ const UsersPage: React.FC = () => {
     const fetchUsers = async (page: number = 1, search: string = "", limit: number = rowsPerPage) => {
         setLoading(true);
         try {
-            const response = await getAllUsers(page, limit, search);
+            const response = await getAllUsers(page, limit, search, false, {
+                status: selectedStatuses,
+                labName: selectedLabs,
+                roles: selectedRoles,
+                designation: selectedDesignations
+            });
             if (response.success && response.data) {
                 // response.data is { users: [], pagination: {} }
                 setUsers(response.data.users || []);
@@ -118,24 +135,42 @@ const UsersPage: React.FC = () => {
     };
 
     const isActionAllowed = (targetUser: User) => {
-        if (currentUser?.role === SUPERADMIN_ROLE_NAME) {
-            return targetUser._id !== currentUser._id;
+        if (!currentUser) return false;
+        if (targetUser._id === currentUser._id) return false; // Never manage self
+
+        const requesterIsSuper = hasPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+        const requesterCanManageAll = hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+        const requesterCanManageOwn = hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE);
+
+        // Helper to check target user's capabilities
+        const checkTargetPermission = (feature: string) => {
+            const perm = permissions.find(p => p.feature === feature);
+            return perm?.roles.includes(targetUser.role) || false;
+        };
+
+        const targetIsSuper = checkTargetPermission(FeatureCodes.FEATURE_SYSTEM_CONFIGURATION);
+        const targetCanManageAll = checkTargetPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES);
+
+        if (requesterIsSuper) {
+            return true;
         }
-        if (currentUser?.role === 'Delegated Admin') {
-            if (targetUser._id === currentUser._id) return false;
-            // Cannot manage superadmins
-            if (targetUser.role === SUPERADMIN_ROLE_NAME) return false;
+
+        if (requesterCanManageAll) {
+            // Cannot manage System Configurators or peers (other Admins)
+            return !targetIsSuper && !targetCanManageAll;
         }
-        if (currentUser?.role === 'Inter Lab sender') {
-            if (targetUser._id === currentUser._id) return false;
-            if (targetUser.role === SUPERADMIN_ROLE_NAME) return false;
+
+        if (requesterCanManageOwn) {
+            // Can only manage users in own lab who are NOT System Configurators or Admins
+            return targetUser.labName === currentUser.labName && !targetIsSuper && !targetCanManageAll;
         }
-        return true;
+
+        return false;
     };
 
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            const allowedUsers = users.filter(u => isActionAllowed(u));
+            const allowedUsers = processedUsers.filter(u => isActionAllowed(u));
             setSelectedUserIds(new Set(allowedUsers.map(u => u._id!)));
         } else {
             setSelectedUserIds(new Set());
@@ -267,6 +302,7 @@ const UsersPage: React.FC = () => {
         }
 
         setSelectedRoles([]);
+        setSelectedDesignations([]);
         setSortConfig(null);
         setCurrentPage(1);
     };
@@ -274,16 +310,8 @@ const UsersPage: React.FC = () => {
     const processedUsers = useMemo(() => {
         let result = [...users];
 
-        // 1. Filter
-        if (selectedStatuses.length > 0) {
-            result = result.filter(u => selectedStatuses.includes(u.status));
-        }
-        if (selectedLabs.length > 0) {
-            result = result.filter(u => u.labName && selectedLabs.includes(u.labName));
-        }
-        if (selectedRoles.length > 0) {
-            result = result.filter(u => u.availableRoles && u.availableRoles.some(r => selectedRoles.includes(r)));
-        }
+        // 1. All filters now happen on the server
+        // This useMemo is kept for sorting (on page) and derived state
 
         // 2. Sort happens in Table component if we pass onSort, but here we might want to pre-sort
         // Actually, Table component handles sorting if we don't pass onSort, or we can handle it here.
@@ -319,7 +347,7 @@ const UsersPage: React.FC = () => {
         return <Navigate to="/references/local" />;
     }
 
-    const manageableUsers = users.filter(u => isActionAllowed(u));
+    const manageableUsers = processedUsers.filter(u => isActionAllowed(u));
     const isAllSelected = manageableUsers.length > 0 && manageableUsers.every(u => selectedUserIds.has(u._id!));
 
     // Options for Filters (Derived from current page + hardcoded defaults)
@@ -336,6 +364,8 @@ const UsersPage: React.FC = () => {
     const roleOptions = Array.from(new Set(users.flatMap(u => u.availableRoles || []))).map(role => ({
         label: role, value: role
     }));
+
+    const designationOptions = allDesignations.map(d => ({ label: d, value: d }));
 
 
     return (
@@ -360,11 +390,12 @@ const UsersPage: React.FC = () => {
                         icon={<UserPlus className="w-4 h-4" />}
                         onClick={() => setIsAddModalOpen(true)}
                         className="shadow-lg shadow-indigo-500/20"
+                        disabled={true}
                     />
-                ) : (hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) || hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)) && currentUser?.role === 'Inter Lab sender' ? (
+                ) : (hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)) ? (
                     <Button
                         variant="primary"
-                        label="Add Delegated Admin"
+                        label="Add Support Admin"
                         icon={<UserPlus className="w-4 h-4" />}
                         onClick={() => setIsAddModalOpen(true)}
                         className="shadow-lg shadow-indigo-500/20"
@@ -372,26 +403,29 @@ const UsersPage: React.FC = () => {
                 ) : null}
             </div>
 
-            {/* Filters Bar */}
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm space-y-4 mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-3 items-center">
-                    <div className="relative col-span-1 md:col-span-1 lg:col-span-2">
-                        <input
-                            type="text"
-                            placeholder="Search name, email, lab..."
-                            className="pl-9 w-full rounded-lg pr-4 h-10 border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-heading"
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                        />
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                            <Search className="w-4 h-4" />
-                        </div>
+            {/* Search Bar - Separate section */}
+            <div className="mb-4">
+                <div className="relative max-w-md">
+                    <input
+                        type="text"
+                        placeholder="Search name, email, lab..."
+                        className="pl-10 w-full rounded-2xl pr-4 h-12 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-heading shadow-xs"
+                        value={searchTerm}
+                        onChange={(e) => {
+                            setSearchTerm(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                        <Search className="w-5 h-5" />
                     </div>
+                </div>
+            </div>
 
-                    <div className="lg:col-span-1">
+            {/* Filters Box - Single line for all dropdowns */}
+            <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs mb-6">
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-[140px]">
                         <DropdownWithCheckboxes
                             name="Status"
                             options={statusOptions}
@@ -399,7 +433,7 @@ const UsersPage: React.FC = () => {
                             onChange={setSelectedStatuses}
                         />
                     </div>
-                    <div className="lg:col-span-2">
+                    <div className="min-w-[200px] flex-1 lg:flex-none">
                         <DropdownWithCheckboxes
                             name="Lab/Institute"
                             options={labOptions}
@@ -408,16 +442,30 @@ const UsersPage: React.FC = () => {
                             disabled={hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) && !hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)}
                         />
                     </div>
-                    <div className="lg:col-span-1">
+                    <div className="min-w-[140px]">
                         <DropdownWithCheckboxes
                             name="Roles"
                             options={roleOptions}
                             selectedValues={selectedRoles}
-                            onChange={setSelectedRoles}
+                            onChange={(vals) => {
+                                setSelectedRoles(vals);
+                                setCurrentPage(1);
+                            }}
+                        />
+                    </div>
+                    <div className="min-w-[140px]">
+                        <DropdownWithCheckboxes
+                            name="Designations"
+                            options={designationOptions}
+                            selectedValues={selectedDesignations}
+                            onChange={(vals) => {
+                                setSelectedDesignations(vals);
+                                setCurrentPage(1);
+                            }}
                         />
                     </div>
 
-                    <div className="lg:col-span-2 flex justify-end">
+                    <div className="ml-auto">
                         <ColumnVisibilityDropdown
                             allColumns={allHeaders}
                             visibleColumns={visibleColumns}
@@ -431,6 +479,7 @@ const UsersPage: React.FC = () => {
             {((selectedLabs.length > 0 && !(hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) && !hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES))) ||
                 selectedStatuses.length > 0 ||
                 selectedRoles.length > 0 ||
+                selectedDesignations.length > 0 ||
                 searchTerm) && (
                     <div className="flex flex-wrap items-center gap-2 mb-4 animate-in fade-in slide-in-from-top-2 duration-300 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
                         <span className="text-[10px] font-bold text-gray-400 uppercase font-heading mr-2">Filters:</span>
@@ -463,8 +512,14 @@ const UsersPage: React.FC = () => {
                             </span>
                         ))}
 
+                        {selectedDesignations.map(desig => (
+                            <span key={desig} className="px-2 py-0.5 rounded-lg text-[10px] font-bold border bg-indigo-50 text-indigo-700 border-indigo-100">
+                                Designation: {desig}
+                            </span>
+                        ))}
+
                         {/* Only show Clear All if there's actually something to clear beyond the restricted lab */}
-                        {(searchTerm || selectedStatuses.length > 0 || selectedRoles.length > 0 || (selectedLabs.length > 0 && !(hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) && !hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)))) && (
+                        {(searchTerm || selectedStatuses.length > 0 || selectedRoles.length > 0 || selectedDesignations.length > 0 || (selectedLabs.length > 0 && !(hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE) && !hasPermission(FeatureCodes.FEATURE_MANAGE_USERS_ALL_OFFICES)))) && (
                             <button
                                 onClick={handleClearAllFilters}
                                 className="ml-auto text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline transition-colors"

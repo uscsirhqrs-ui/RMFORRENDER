@@ -1,5 +1,5 @@
 /**
- * @fileoverview API Service - Handles reference archiving operations
+ * @fileoverview API Service - Handles HTTP client requests
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India

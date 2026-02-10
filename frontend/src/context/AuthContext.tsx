@@ -39,6 +39,7 @@ export interface User {
         accentColor: 'indigo' | 'blue' | 'emerald' | 'rose' | 'amber';
         fontSize: 'small' | 'medium' | 'large';
     };
+    hasApprovalAuthority?: boolean;
 }
 
 interface AuthContextType {
@@ -64,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsPermissionsLoading(true);
         const response = await getFeaturePermissions();
         if (response.success) {
-            console.log('[AuthContext] Fetched Permissions:', response.data.permissions);
+
             setPermissions(response.data.permissions);
         } else {
             console.error('[AuthContext] Failed to fetch permissions');
@@ -77,18 +78,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const storedUser = localStorage.getItem('user');
             if (storedUser) {
                 try {
-                    const parsedUser = JSON.parse(storedUser);
-                    setUser(parsedUser); // Optimistic update from local storage
-                    setIsLoading(false); // Set loading to false as soon as we have local data
-
+                    JSON.parse(storedUser); // Verify JSON validity
                     // Fetch fresh user data from backend to ensure roles/status are synced
-                    // This happens in the background without blocking the UI
                     try {
                         const userResponse = await getCurrentUser();
                         if (userResponse.success && userResponse.data) {
-                            console.log('[AuthContext] Refreshed user from backend:', userResponse.data);
+
                             setUser(userResponse.data);
-                            localStorage.setItem('user', JSON.stringify(userResponse.data));
+                            // Store public data in localStorage
+                            const publicUserData = {
+                                _id: userResponse.data._id,
+                                fullName: userResponse.data.fullName,
+                                email: userResponse.data.email,
+                                role: userResponse.data.role,
+                                initials: userResponse.data.initials,
+                                labName: userResponse.data.labName,
+                                designation: userResponse.data.designation,
+                                division: userResponse.data.division,
+                                status: userResponse.data.status,
+                                hasApprovalAuthority: userResponse.data.hasApprovalAuthority
+                            };
+                            localStorage.setItem('user', JSON.stringify(publicUserData));
                         } else {
                             console.warn('[AuthContext] Session invalid or expired. Clearing local storage.');
                             setUser(null);
@@ -101,20 +111,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 } catch (error) {
                     console.error("Failed to parse user from local storage", error);
                     localStorage.removeItem('user');
-                    setIsLoading(false);
                 }
-            } else {
-                setIsLoading(false); // No user, stop loading immediately
             }
-            // Fetch permissions in the background
-            fetchPermissions();
+
+            // Always fetch permissions and THEN set loading to false
+            await fetchPermissions();
+            setIsLoading(false);
         };
         initAuth();
     }, []);
 
     const login = (userData: User) => {
         setUser(userData);
-        localStorage.setItem('user', JSON.stringify(userData));
+        // Store only minimal, non-sensitive data in localStorage
+        const publicUserData = {
+            _id: userData._id,
+            fullName: userData.fullName,
+            email: userData.email,
+            role: userData.role,
+            initials: userData.initials,
+            labName: userData.labName,
+            designation: userData.designation,
+            division: userData.division,
+            status: userData.status,
+            hasApprovalAuthority: userData.hasApprovalAuthority
+        };
+        localStorage.setItem('user', JSON.stringify(publicUserData));
         fetchPermissions(); // Refresh permissions on login
     };
 
@@ -133,9 +155,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const hasAccess = permission.roles.includes(user.role);
-        // console.log(`[AuthContext] Check '${feature}' for '${user.role}' found roles:`, permission.roles, '=>', hasAccess);
-        if (feature === FeatureCodes.FEATURE_FORM_MANAGEMENT && user.role === 'User') {
-            console.log(`[AuthContext] DEBUG: Form Management check. Roles defined: ${JSON.stringify(permission.roles)}. Has Access: ${hasAccess}`);
+
+        if (feature === FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB && user.role === 'User') {
+
         }
         return hasAccess;
     };

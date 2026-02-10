@@ -19,6 +19,7 @@ const LABS_KEY = "LABS";
 const DESIGNATIONS_KEY = "DESIGNATIONS";
 const DIVISIONS_KEY = "DIVISIONS";
 const FEATURE_PERMISSIONS_KEY = "FEATURE_PERMISSIONS";
+const APPROVAL_AUTHORITY_DESIGNATIONS_KEY = "APPROVAL_AUTHORITY_DESIGNATIONS";
 
 export const DEFAULT_ALLOWED_DOMAINS = ["csir.res.in"];
 
@@ -154,10 +155,16 @@ const DEFAULT_FEATURE_PERMISSIONS = [
         description: "Manage global (inter-lab) references"
     },
     {
-        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT,
-        label: "Form Management",
+        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB,
+        label: "Form Creation/Sending(own lab)",
         roles: ["User", "Inter Lab sender", "Superadmin"],
-        description: "Create forms, share forms, share templates"
+        description: "Create and share forms within own lab"
+    },
+    {
+        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB,
+        label: "Form Creation/Sending(inter lab)",
+        roles: ["Inter Lab sender", "Superadmin"],
+        description: "Create and share forms across different labs"
     },
     {
         feature: FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE,
@@ -429,7 +436,7 @@ const updateDivisions = asyncHandler(async (req, res) => {
  * Get Feature Permissions
  */
 const getFeaturePermissions = asyncHandler(async (req, res) => {
-    console.log('[Controller] Fetching feature permissions...');
+
     let config = await SystemConfig.findOne({ key: FEATURE_PERMISSIONS_KEY });
 
     if (!config) {
@@ -459,9 +466,6 @@ const getFeaturePermissions = asyncHandler(async (req, res) => {
         { key: FEATURE_PERMISSIONS_KEY },
         { $set: { value: newConfigValue } }
     );
-    console.log('[Controller] Synced feature permissions with defaults.');
-
-    console.log('[Controller] Returning permissions:', JSON.stringify(config.value, null, 2));
 
     return res.status(200).json(
         new ApiResponse(200, "Feature permissions fetched successfully", { permissions: config.value })

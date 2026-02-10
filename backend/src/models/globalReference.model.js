@@ -100,12 +100,15 @@ const GlobalReferenceSchema = new Schema(
       email: String,
       labName: String,
       designation: String,
+      division: String,
     },
     markedToDetails: [{
+      _id: Schema.Types.ObjectId,
       fullName: String,
       email: String,
       labName: String,
       designation: String,
+      division: String,
     }],
   },
   {

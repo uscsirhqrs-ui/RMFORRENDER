@@ -15,7 +15,7 @@ import { getLocalReferenceById, bulkUpdateLocalReferences } from "../services/lo
 import { Eye, EyeOff, Archive, Undo2, Shield, Printer } from "lucide-react";
 import { exportReferenceReportPDF } from "../utils/exportUtils";
 import logo2 from "../assets/images/logo2.svg";
-import type { Reference } from "../types/Reference.type";
+import type { Reference, UserDetails } from "../types/Reference.type";
 import Button from "../components/ui/Button";
 import { ArrowLeft, Flag, Globe, Building2 } from "lucide-react";
 import UserProfileViewModal from "../components/ui/UserProfileViewModal";
@@ -30,11 +30,13 @@ interface Movement {
     _id: string;
     reference: string;
     markedTo: any | any[]; // Can be single or array of users
-    performedBy?: {
+    performedBy?: string | {
         _id: string;
         fullName: string;
         email: string;
     };
+    performedByDetails?: UserDetails;
+    markedToDetails?: UserDetails[];
     statusOnMovement: string;
     remarks: string;
     movementDate: string;
@@ -114,7 +116,7 @@ function ReferenceDetailsPage() {
                         return;
                     }
                 } catch (gErr) {
-                    console.log("Global fetch failed, trying local fallback", gErr);
+
                 }
 
                 // Attempt Local second
@@ -126,7 +128,7 @@ function ReferenceDetailsPage() {
                         return;
                     }
                 } catch (lErr) {
-                    console.log("Local fetch failed", lErr);
+
                 }
             }
 
@@ -280,19 +282,24 @@ function ReferenceDetailsPage() {
 
         // Add users from movements
         if (movements) {
-            movements.forEach(m => {
-                if (Array.isArray(m.markedTo)) {
-                    m.markedTo.forEach((u: any) => addUser(u));
-                } else {
-                    addUser(m.markedTo);
-                }
-                addUser(m.performedBy);
+            movements.forEach((m: any) => {
+                // Add from details if available (New way)
+                if (m.performedByDetails) addUser(m.performedByDetails);
+                if (m.markedToDetails) addUser(m.markedToDetails);
+
+                // Fallback to populated objects (Legacy/Compatibility)
+                if (m.markedTo && typeof m.markedTo === 'object') addUser(m.markedTo);
+                if (m.performedBy && typeof m.performedBy === 'object') addUser(m.performedBy);
             });
         }
 
         // Add creator and current assignee
-        addUser(reference.createdBy);
-        addUser(reference.markedTo);
+        if (reference.createdByDetails) addUser(reference.createdByDetails);
+        if (reference.markedToDetails) addUser(reference.markedToDetails);
+
+        // Fallback for Reference (Legacy/Compatibility)
+        if (reference.createdBy && typeof reference.createdBy === 'object') addUser(reference.createdBy);
+        if (reference.markedTo && typeof reference.markedTo === 'object') addUser(reference.markedTo);
 
         return Array.from(uniqueUsers.values());
     };
@@ -537,10 +544,10 @@ function ReferenceDetailsPage() {
                                 <div className="flex-1">
                                     <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mb-1">Created by:</p>
                                     <button
-                                        onClick={() => openUserProfile(getUserId(reference.createdBy))}
+                                        onClick={() => openUserProfile(getUserId(reference.createdByDetails || reference.createdBy))}
                                         className="text-sm font-medium hover:text-indigo-600 hover:underline text-left inline wrap-break-word"
                                     >
-                                        {getUserDisplayName(reference.createdBy)}
+                                        {getUserDisplayName(reference.createdByDetails || reference.createdBy)}
                                     </button>
                                 </div>
                             </div>
@@ -579,10 +586,10 @@ function ReferenceDetailsPage() {
                                         ) : (
                                             <div className="inline-flex items-center gap-2">
                                                 <button
-                                                    onClick={() => openUserProfile(getUserId(Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo))}
+                                                    onClick={() => openUserProfile(getUserId((Array.isArray(reference.markedToDetails) ? reference.markedToDetails[0] : reference.markedToDetails) || (Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo)))}
                                                     className="text-sm text-gray-600 hover:text-indigo-600 hover:underline text-left leading-snug wrap-break-word"
                                                 >
-                                                    {getUserDisplayName(Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo)}
+                                                    {getUserDisplayName((Array.isArray(reference.markedToDetails) ? reference.markedToDetails[0] : reference.markedToDetails) || (Array.isArray(reference.markedTo) ? reference.markedTo[0] : reference.markedTo))}
                                                 </button>
                                                 {currentUser?._id && reference.markedTo && reference.status !== 'Closed' && (
                                                     (Array.isArray(reference.markedTo)
@@ -626,8 +633,8 @@ function ReferenceDetailsPage() {
                             </div>
                             {/* Reminder / Reopen Request Button */}
                             {(isAdmin || (currentUser?._id && movements?.some(m =>
-                                (m.markedTo?._id === currentUser._id) || (m.performedBy?._id === currentUser._id)
-                            )) || (currentUser?._id && reference.createdBy && (typeof reference.createdBy === 'object' ? reference.createdBy._id === currentUser._id : reference.createdBy === currentUser._id))) && (
+                                (getUserId(m.markedTo) === currentUser._id) || (getUserId(m.performedBy) === currentUser._id)
+                            )) || (currentUser?._id && reference && getUserId(reference.createdBy) === currentUser._id)) && (
                                     <div className="w-full sm:w-auto">
                                         {reference.status === 'Closed' ? (
                                             /* HIDE BUTTON if Admin OR if Request is already Pending */
@@ -662,7 +669,7 @@ function ReferenceDetailsPage() {
                                                 className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md border-4 border-white ring-1 ring-gray-100"
                                                 style={{ backgroundColor: '#a855f7' }}
                                             >
-                                                {((movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))?.fullName?.substring(0, 2).toUpperCase()) || "NA"}
+                                                {((movement.performedByDetails || (movement.markedToDetails?.[0]))?.fullName?.substring(0, 2).toUpperCase()) || "NA"}
                                             </div>
                                             {/* Date for mobile - beside avatar */}
                                             <span className="sm:hidden text-[10px] font-bold uppercase tracking-wider text-gray-400">
@@ -676,10 +683,10 @@ function ReferenceDetailsPage() {
                                                 <div>
                                                     <h3 className="font-semibold text-gray-900 flex flex-wrap">
                                                         <button
-                                                            onClick={() => openUserProfile(getUserId(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)))}
+                                                            onClick={() => openUserProfile(getUserId(movement.performedByDetails || movement.markedToDetails?.[0] || movement.performedBy || movement.markedTo?.[0]))}
                                                             className="hover:text-indigo-600 hover:underline text-left font-semibold wrap-break-word"
                                                         >
-                                                            {getUserDisplayName(movement.performedBy || (Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
+                                                            {getUserDisplayName(movement.performedByDetails || movement.markedToDetails?.[0] || movement.performedBy || movement.markedTo?.[0])}
                                                         </button>
                                                     </h3>
                                                     <div className="inline-flex items-center gap-1 mt-1">
@@ -725,10 +732,10 @@ function ReferenceDetailsPage() {
                                                                 </div>
                                                             ) : (
                                                                 <button
-                                                                    onClick={() => openUserProfile(getUserId(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo))}
+                                                                    onClick={() => openUserProfile(getUserId(movement.markedToDetails?.[0] || movement.markedTo?.[0]))}
                                                                     className="hover:text-indigo-600 hover:underline text-left text-indigo-600 font-medium"
                                                                 >
-                                                                    {getUserDisplayName(Array.isArray(movement.markedTo) ? movement.markedTo[0] : movement.markedTo)}
+                                                                    {getUserDisplayName(movement.markedToDetails?.[0] || movement.markedTo?.[0])}
                                                                 </button>
                                                             )}
                                                         </div>
@@ -782,7 +789,7 @@ function ReferenceDetailsPage() {
                 onClose={() => setIsProfileModalOpen(false)}
                 userId={selectedUserId}
             />
-        </div>
+        </div >
     );
 }
 

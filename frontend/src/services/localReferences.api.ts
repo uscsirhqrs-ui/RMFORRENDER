@@ -1,5 +1,5 @@
 /**
- * @fileoverview API Service - Handles HTTP client requests for Local References
+ * @fileoverview API Service - Handles HTTP client requests
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
@@ -59,7 +59,7 @@ export const getLocalReferenceById = async (id: string): Promise<ApiResponse> =>
 
 export const getLocalDashboardStats = async (): Promise<ApiResponse> => {
     const response = await api.get('/stats');
-    console.log("Response local stats: ", response);
+
     return response.data;
 };
 

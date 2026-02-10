@@ -1,3 +1,13 @@
+/**
+ * @fileoverview Utility Functions - Helper functions and common utilities
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import { SystemConfig } from "../models/systemConfig.model.js";
 
 /**

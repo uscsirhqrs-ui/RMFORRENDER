@@ -1,8 +1,18 @@
+/**
+ * @fileoverview React Component - UI component for the application
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
+ */
+
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { FeatureCodes, SUPERADMIN_ROLE_NAME } from "../../constants";
 import UserDropdown from "./UserDropdown.tsx";
-import { LogIn, FileStack, Users, ShieldAlert, Bell, Settings, Database, Shield, Share2, Library, Sparkles, Menu, X } from "lucide-react";
+import { LogIn, FileStack, Users, ShieldAlert, Bell, Settings, Database, Shield, Library, Sparkles, ArrowDownLeft, ArrowUpRight, Menu, X } from "lucide-react";
 import Button from "../ui/Button.tsx";
 import { TaskIndicator } from "../ui/TaskIndicator.tsx";
 import { useState, useEffect, useRef } from "react";
@@ -15,7 +25,7 @@ import { getLocalReferenceById } from "../../services/localReferences.api.ts";
 import { getReferenceById } from "../../services/globalReferences.api.ts";
 
 function Header() {
-  console.log("Rendering Header - vMobile2");
+
   const { user, isAuthenticated, login, logout, hasPermission, isPermissionsLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -95,12 +105,12 @@ function Header() {
 
       if (notification.type === 'NEW_USER_APPROVAL' || notification.type === 'PROFILE_UPDATE') {
         navigate('/users');
-      } else if (notification.type === 'FORM_SHARED' || notification.type === 'FORM_UPDATED') {
+      } else if (notification.type === 'FORM_SHARED' || notification.type === 'FORM_UPDATED' || notification.type === 'FORM_REMINDER') {
         const id = notification.referenceId;
         if (id) {
-          navigate('/data-collection/shared', { state: { openFormId: id } });
+          navigate('/data-collection/shared-with-me', { state: { openFormId: id } });
         } else {
-          navigate('/data-collection/shared');
+          navigate('/data-collection/shared-with-me');
         }
       } else if (notification.referenceId) {
         // 1. New Efficient Routing (if referenceType is present)
@@ -181,7 +191,7 @@ function Header() {
     if (hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES)) return "/admin/references/local";
     if (hasPermission(FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES)) return "/admin/references/global";
 
-    if (hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT)) return "/data-collection";
+    if (hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB) || hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB)) return "/data-collection";
 
     return "/profile";
   };
@@ -224,15 +234,6 @@ function Header() {
   const hasManageLocalAll = hasPermission(FeatureCodes.FEATURE_MANAGE_LOCAL_REFERENCES_ALL_OFFICES);
   const hasManageGlobal = hasPermission(FeatureCodes.FEATURE_MANAGE_GLOBAL_REFERENCES);
 
-  console.log("DEBUG HEADER:", {
-    isAuthenticated,
-    isApproved,
-    isProfileIncomplete,
-    hasOwnLabRef,
-    hasInterLabRef,
-    permissionsCount: useAuth().permissions.length,
-    userRole: user?.role
-  });
 
   const navLinks = (!isAuthenticated || !isApproved || isProfileIncomplete) ? [] : [
     ...(hasOwnLabRef || hasInterLabRef ? [{
@@ -257,14 +258,15 @@ function Header() {
       ]
     }] : []),
 
-    ...(hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT) ? [{
-      path: "/data-collection/shared",
+    ...(hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB) || hasPermission(FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB) ? [{
+      path: "/data-collection",
       label: "Data Collection",
       icon: Database,
       hasDropdown: true,
       subItems: [
         { label: "AI Form Builder", path: "/data-collection/create", icon: Sparkles },
-        { label: "My Distributions", path: "/data-collection/shared", icon: Share2 },
+        { label: "Shared With Me", path: "/data-collection/shared-with-me", icon: ArrowDownLeft },
+        { label: "Distributed By Me", path: "/data-collection/distributed-by-me", icon: ArrowUpRight },
         { label: "Saved Templates", path: "/data-collection/saved", icon: Library },
       ]
     }] : []),
@@ -286,7 +288,7 @@ function Header() {
     return location.pathname === path || location.pathname.startsWith(path + "/");
   };
 
-  console.log("NAVLINKS COMPUTED:", navLinks);
+
 
   return (
     <header className={`py-4 sticky top-0 z-50 backdrop-blur-xl bg-white/70 dark:bg-gray-900/70 border-b border-white/20 dark:border-gray-800/20 transition-all duration-500 ease-in-out ${isAuthenticated && user && isApproved ? roleTheme.border : 'shadow-sm'}`}>
@@ -461,11 +463,13 @@ function Header() {
 
                 <div className="hidden sm:block">
                   <UserDropdown
-                    labName={user.labName || user.fullName}
+                    labName={user.fullName || user.email}
                     userInitials={user.initials}
                     userEmail={user.email}
                     userRole={user.role}
                     userAvatar={user.avatar}
+                    userDesignation={user.designation}
+                    hasApprovalAuthority={user.hasApprovalAuthority}
                   />
                 </div>
 
@@ -527,7 +531,17 @@ function Header() {
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 dark:text-white">{user.fullName}</p>
-                    <p className="text-xs text-gray-500">{user.email}</p>
+                    {user.designation && (
+                      <p className="text-[10px] font-bold text-gray-500 uppercase">{user.designation}</p>
+                    )}
+                    {user.hasApprovalAuthority && (
+                      <div className="mt-1">
+                        <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 uppercase tracking-tighter">
+                          Approval Authority
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-1">{user.email}</p>
                     <div className="mt-2 flex gap-2">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border ${roleTheme.badge}`}>{user.role}</span>
                       {user.availableRoles && user.availableRoles.length > 1 && (

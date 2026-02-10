@@ -1,6 +1,11 @@
 /**
- * @fileoverview Script to sync database FEATURE_PERMISSIONS with code defaults.
- * This effectively removes the legacy 'Local Admin' role and ensures consistent permissions.
+ * @fileoverview Source File - Part of the application codebase
+ * 
+ * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
+ * @company Council of Scientific and Industrial Research, India
+ * @license CSIR
+ * @version 1.0.0
+ * @since 2026-02-09
  */
 
 import mongoose from 'mongoose';
@@ -50,10 +55,16 @@ const DEFAULT_FEATURE_PERMISSIONS = [
         description: "Manage global (inter-lab) references"
     },
     {
-        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT,
-        label: "Form Management",
+        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT_OWN_LAB,
+        label: "Form Creation/Sending(own lab)",
         roles: ["User", "Inter Lab sender", SUPERADMIN_ROLE_NAME],
-        description: "Create forms, share forms, share templates"
+        description: "Create and share forms within own lab"
+    },
+    {
+        feature: FeatureCodes.FEATURE_FORM_MANAGEMENT_INTER_LAB,
+        label: "Form Creation/Sending(inter lab)",
+        roles: ["Inter Lab sender", SUPERADMIN_ROLE_NAME],
+        description: "Create and share forms across different labs"
     },
     {
         feature: FeatureCodes.FEATURE_MANAGE_USERS_OWN_OFFICE,

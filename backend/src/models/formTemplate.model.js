@@ -5,91 +5,69 @@
  * @company Council of Scientific and Industrial Research, India
  * @license CSIR
  * @version 1.0.0
- * @since 2026-01-13
+ * @since 2026-01-22
  */
 
 import mongoose, { Schema } from 'mongoose';
 
 const formTemplateSchema = new Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    fields: [
-      {
-        id: String,
-        type: {
-          type: String,
-          enum: ['text', 'select', 'date'],
-          default: 'text',
+    {
+        title: {
+            type: String,
+            required: true,
+            trim: true,
+            index: true
         },
-        label: String,
-        placeholder: String,
-        required: {
-          type: Boolean,
-          default: false,
+        description: {
+            type: String,
+            trim: true
         },
-        options: [
-          {
-            label: String,
-            value: String,
-          },
+        category: {
+            type: String,
+            default: "General",
+            index: true
+        },
+        fields: [
+            {
+                id: String,
+                type: {
+                    type: String,
+                    enum: ['text', 'select', 'date', 'radio', 'checkbox', 'file', 'header'],
+                    required: true
+                },
+                label: String,
+                placeholder: String,
+                section: String,
+                columnSpan: {
+                    type: Number,
+                    default: 1
+                },
+                description: String,
+                required: Boolean,
+                options: [{ label: String, value: String }],
+                validation: {
+                    isNumeric: Boolean,
+                    isEmail: Boolean,
+                    pattern: String,
+                    message: String,
+                    minLength: Number,
+                    maxLength: Number
+                }
+            }
         ],
-        validation: {
-          pattern: String,
-          message: String,
-          isNumeric: Boolean,
-          isEmail: Boolean,
+        createdBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
         },
-      },
-    ],
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+        isPublic: {
+            type: Boolean,
+            default: false
+        }
     },
-    sharedWithLabs: [
-      {
-        type: String, // labName
-      },
-    ],
-    sharedWithUsers: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-    isPublic: {
-      type: Boolean,
-      default: false,
-    },
-    allowMultipleSubmissions: {
-      type: Boolean,
-      default: false,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    deadline: {
-      type: Date,
-    },
-    archivedBy: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: 'User',
-      },
-    ],
-  },
-  {
-    timestamps: true,
-  }
+    {
+        timestamps: true
+    }
 );
 
 export const FormTemplate = mongoose.model('FormTemplate', formTemplateSchema);

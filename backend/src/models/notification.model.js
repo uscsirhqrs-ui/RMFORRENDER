@@ -19,7 +19,7 @@ const NotificationSchema = new Schema({
     },
     type: {
         type: String,
-        enum: ['NEW_USER_APPROVAL', 'REOPEN_REQUEST', 'REFERENCE_ASSIGNED', 'REMINDER', 'FORM_SHARED', 'FORM_UPDATED', 'PROFILE_UPDATE'],
+        enum: ['NEW_USER_APPROVAL', 'REOPEN_REQUEST', 'REFERENCE_ASSIGNED', 'REMINDER', 'FORM_SHARED', 'FORM_UPDATED', 'PROFILE_UPDATE', 'FORM_REMINDER'],
         required: true
     },
     title: {

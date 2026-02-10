@@ -77,14 +77,17 @@ export const initializeDefaultConfigs = async () => {
         { key: "DESIGNATIONS", value: DEFAULT_DESIGNATIONS, description: "List of standard designations" },
         { key: "DIVISIONS", value: DEFAULT_DIVISIONS, description: "List of divisions / sections" },
         { key: "SHOW_LOGIN_MESSAGE", value: false, description: "Enable showing custom announcement message after login" },
-        { key: "LOGIN_MESSAGE_CONTENT", value: "", description: "Content of the custom announcement message" }
+        { key: "LOGIN_MESSAGE_CONTENT", value: "", description: "Content of the custom announcement message" },
+        { key: "APPROVAL_AUTHORITY_DESIGNATIONS", value: ["Director General-CSIR", "Director", "Joint Secretary(Admin)"], description: "List of designations authorized for approvals" },
+        { key: "MAX_FILE_SIZE_MB", value: 1, description: "Maximum allowed file size for uploads in Megabytes" },
+        { key: "FILE_UPLOADS_ENABLED", value: true, description: "Globally enable or disable file uploads in the system" }
     ];
 
     for (const def of defaults) {
         const exists = await SystemConfig.findOne({ key: def.key });
         if (!exists) {
             await SystemConfig.create(def);
-            console.log(`Initialized default config: ${def.key}`);
+
         }
     }
 };

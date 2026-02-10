@@ -1,5 +1,5 @@
 /**
- * @fileoverview Parichay OAuth 2.0 Service - Handles OAuth integration with Parichay
+ * @fileoverview Service Layer - Business logic and external integrations
  * 
  * @author Abhishek Chandra <abhishek.chandra@csir.res.in>
  * @company Council of Scientific and Industrial Research, India
