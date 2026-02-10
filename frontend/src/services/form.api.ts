@@ -374,8 +374,3 @@ export const updateBlueprint = async (id: string, payload: any): Promise<ApiResp
     }
 };
 
-// Backwards-compatible aliases for older import names used elsewhere in the codebase
-export const getFormTemplateById = getActiveFormById;
-export const deleteFormTemplate = deleteActiveForm;
-export const updateFormTemplate = updateActiveForm;
-

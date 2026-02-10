@@ -9,9 +9,9 @@
  */
 
 // Prefer dynamic hostname in development to allow network access (IP based) without CORS/Cookie issues
-export const API_BASE_URL = import.meta.env.PROD
-    ? (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:8000/api/v1`)
-    : `http://${window.location.hostname}:8000/api/v1`;
+export const API_BASE_URL = import.meta.env.VITE_API_URL
+    ? import.meta.env.VITE_API_URL
+    : `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
 export const SUPERADMIN_ROLE_NAME = 'Superadmin';
 
 // constants/roleCodes.ts

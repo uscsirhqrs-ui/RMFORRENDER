@@ -229,17 +229,19 @@ export const handleParichayCallback = asyncHandler(async (req, res, next) => {
     const accessTokenMaxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
     const refreshTokenMaxAge = 10 * 24 * 60 * 60 * 1000; // 10 days
 
+    const isSecure = process.env.NODE_ENV === "production" && process.env.SSL_ENABLED === 'true';
+
     res.cookie("accessToken", jwtAccessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: isSecure,
+      sameSite: isSecure ? "None" : "Lax",
       maxAge: accessTokenMaxAge
     });
 
     res.cookie("refreshToken", jwtRefreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: isSecure,
+      sameSite: isSecure ? "None" : "Lax",
       maxAge: refreshTokenMaxAge
     });
 

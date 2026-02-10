@@ -222,11 +222,11 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
 
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const isSecure = process.env.NODE_ENV === "production" && process.env.SSL_ENABLED === 'true';
   const options = {
     httpOnly: true,
-    secure: isProduction, // true in production, false otherwise
-    sameSite: isProduction ? "None" : "Lax", // None in production (requires Secure), Lax for local/HTTP
+    secure: isSecure, // true only if production AND SSL enabled
+    sameSite: isSecure ? "None" : "Lax", // None requires Secure
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 
@@ -259,19 +259,19 @@ const logoutUser = asyncHandler(async (req, res, next) => {
   const user = await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: { 
+      $set: {
         refreshToken: undefined,
-        refreshTokenHash: undefined 
+        refreshTokenHash: undefined
       },
     },
     { new: true }
   );
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const isSecure = process.env.NODE_ENV === "production" && process.env.SSL_ENABLED === 'true';
   const options = {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "None" : "Lax"
+    secure: isSecure,
+    sameSite: isSecure ? "None" : "Lax"
   };
 
   await logActivity(req, "USER_LOGOUT", "User", req.user._id);
@@ -312,11 +312,11 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
       throw new ApiErrors("Refresh token invalid or revoked", 401);
     }
 
-    const isProduction = process.env.NODE_ENV === "production";
+    const isSecure = process.env.NODE_ENV === "production" && process.env.SSL_ENABLED === 'true';
     const options = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? "None" : "Lax"
+      secure: isSecure,
+      sameSite: isSecure ? "None" : "Lax"
     };
 
     const { accessToken, newRefreshToken } =
