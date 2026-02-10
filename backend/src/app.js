@@ -50,7 +50,9 @@ app.use(cors({
     // In production, be strict about origins
     if (process.env.NODE_ENV === 'production') {
       if (!origin) {
-        return callback(new Error('Not allowed by CORS'));
+        // ALLOW non-browser requests (like curl, postman) or initial browser navigation (where origin is null)
+        // This is required for the backend to serve the React app's index.html
+        return callback(null, true);
       }
 
       if (allowedOrigins.includes(origin)) {
