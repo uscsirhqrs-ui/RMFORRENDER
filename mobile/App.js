@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ActivityIndicator, LogBox } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -16,6 +16,7 @@ import FormDetailsScreen from './screens/FormDetailsScreen';
 import ReferencesListScreen from './screens/ReferencesListScreen';
 import ReferenceDetailsScreen from './screens/ReferenceDetailsScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import UpdateReferenceScreen from './screens/UpdateReferenceScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,6 +71,7 @@ const AppNavigator = () => {
           <Stack.Screen name="Main" component={MainTabNavigator} />
           <Stack.Screen name="FormDetails" component={FormDetailsScreen} options={{ headerShown: true, title: 'Form Details' }} />
           <Stack.Screen name="ReferenceDetails" component={ReferenceDetailsScreen} options={{ headerShown: true, title: 'Reference Details' }} />
+          <Stack.Screen name="UpdateReference" component={UpdateReferenceScreen} options={{ headerShown: true, title: 'Update Reference' }} />
         </>
       ) : (
         <>
