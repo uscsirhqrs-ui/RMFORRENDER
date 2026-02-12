@@ -23,14 +23,17 @@ import { seedAdmin } from './utils/seed.js';
 connectDB()
     .then(async () => {
         await seedAdmin();
-        
-        const PORT = process.env.PORT || 8000;
 
-        if (process.env.SSL_ENABLED === 'true') {
+        const PORT = process.env.PORT || 8000;
+        const sslEnabled = String(process.env.SSL_ENABLED).trim().toLowerCase() === 'true';
+        console.log("DEBUG: Raw SSL_ENABLED:", process.env.SSL_ENABLED);
+        console.log("DEBUG: Parsed sslEnabled:", sslEnabled);
+
+        if (sslEnabled) {
             try {
                 const fs = await import('fs');
                 const https = await import('https');
-                
+
                 const keyPath = process.env.SSL_KEY_PATH;
                 const certPath = process.env.SSL_CERT_PATH;
 

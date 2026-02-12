@@ -226,7 +226,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
   const options = {
     httpOnly: true,
     secure: isSecure, // true only if production AND SSL enabled
-    sameSite: isSecure ? "None" : "Lax", // None requires Secure
+    sameSite: "Lax", // Strict or Lax is better for same-domain (IP based) config
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   };
 
@@ -271,7 +271,7 @@ const logoutUser = asyncHandler(async (req, res, next) => {
   const options = {
     httpOnly: true,
     secure: isSecure,
-    sameSite: isSecure ? "None" : "Lax"
+    sameSite: "Lax"
   };
 
   await logActivity(req, "USER_LOGOUT", "User", req.user._id);
@@ -316,7 +316,7 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
     const options = {
       httpOnly: true,
       secure: isSecure,
-      sameSite: isSecure ? "None" : "Lax"
+      sameSite: "Lax"
     };
 
     const { accessToken, newRefreshToken } =
